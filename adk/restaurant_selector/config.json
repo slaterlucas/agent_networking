@@ -1,0 +1,67 @@
+{
+  "agent_name": "Restaurant Selector Agent",
+  "version": "1.0.0",
+  "description": "ADK agent for searching and selecting restaurants using Exa API",
+  "search_params": {
+    "num_results": 15,
+    "use_autoprompt": true,
+    "include_text": true
+  },
+  "cuisine_types": [
+    "italian",
+    "japanese",
+    "mexican",
+    "chinese",
+    "american",
+    "thai",
+    "indian",
+    "french",
+    "mediterranean",
+    "korean",
+    "vietnamese",
+    "middle eastern",
+    "greek",
+    "spanish",
+    "german"
+  ],
+  "default_location": "New York City",
+  "distance_radius": 25,
+  "price_range": {
+    "min": 1,
+    "max": 4,
+    "scale": "1-4 dollar signs"
+  },
+  "rating_threshold": 4.0,
+  "dietary_restrictions": [
+    "vegetarian",
+    "vegan",
+    "gluten-free",
+    "halal",
+    "kosher",
+    "dairy-free",
+    "nut-free",
+    "keto",
+    "paleo"
+  ],
+  "preferred_domains": [
+    "yelp.com",
+    "google.com",
+    "opentable.com",
+    "zomato.com",
+    "tripadvisor.com",
+    "foursquare.com",
+    "urbanspoon.com"
+  ],
+  "filters": {
+    "exclude_keywords": ["closed", "permanently closed", "out of business"],
+    "include_keywords": ["open", "reservations", "highly rated", "recommended"]
+  },
+  "output_format": {
+    "max_restaurants": 10,
+    "include_description": true,
+    "include_pricing": true,
+    "include_location": true,
+    "include_hours": true,
+    "include_reviews": true
+  }
+} 
