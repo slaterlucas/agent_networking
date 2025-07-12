@@ -3,7 +3,7 @@
 
 .SILENT:
 .ONESHELL:
-.PHONY: setup_dev setup_prod ruff test_all check_types coverage_all run_gui run_server run_client help
+.PHONY: setup_dev ruff test_all check_types coverage_all run_gui run_server run_client help
 .DEFAULT_GOAL := help
 
 SRC_PATH := src
