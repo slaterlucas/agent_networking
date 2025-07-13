@@ -18,6 +18,10 @@ from agents.user_agent_template import UserProfile, create_user_agent
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Suppress uvicorn cancellation errors during shutdown
+logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
 # User profiles for our agents
 USER_PROFILES = {
     "Alice": UserProfile(
@@ -68,6 +72,8 @@ async def start_agent_server(user_name: str, user_profile: UserProfile):
         server = uvicorn.Server(config)
         await server.serve()
         
+    except asyncio.CancelledError:
+        logger.info(f"{user_name}'s agent server cancelled gracefully")
     except Exception as e:
         logger.error(f"Error starting {user_name}'s agent: {e}")
 
@@ -192,9 +198,16 @@ async def main():
     # Run the communication test
     await test_agent_communication()
     
-    # Cancel server tasks
+    # Graceful shutdown
+    logger.info("Shutting down agent servers...")
     for task in server_tasks:
         task.cancel()
+    
+    # Wait for tasks to complete cancellation
+    try:
+        await asyncio.gather(*server_tasks, return_exceptions=True)
+    except Exception as e:
+        logger.debug(f"Expected cancellation during shutdown: {e}")
     
     logger.info("A2A Agent Communication System completed")
 
