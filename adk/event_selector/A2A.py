@@ -4,7 +4,7 @@ from fastapi import FastAPI, Header, HTTPException, status
 
 # Python-A2A SDK 
 from python_a2a import A2AServer, AgentCard, AgentSkill
-from python_a2a.discovery import AgentRegistry
+from python_a2a.discovery import AgentRegistry, enable_discovery
 
 # Business logic
 from adk.event_selector.main import suggest_event
@@ -21,7 +21,7 @@ from python_a2a.models import Message  # type: ignore
 skill = AgentSkill(
     id="event-selector",
     name="event-selector",
-    description="LLM-driven event picker using Exa + Gemini-2.5",
+    description="LLM-driven event picker using Exa + Gemini",
     tags=["event", "picker"],
     examples=[
         "I'm looking for a jazz concert in San Francisco on Friday at 7pm, moderate budget, want date night vibes",
@@ -130,8 +130,6 @@ def _impl(body) -> Outputs:  # noqa: ANN001
 # 5) Spin up FastAPI with the A2A helper
 app = FastAPI()
 
-# Create the A2A server and register with discovery
-from python_a2a.discovery import enable_discovery
 
 server = A2AServer(
     app,

@@ -39,13 +39,20 @@ from google import genai
 # ── 0.  ENV & BOOTSTRAP  ──────────────────────────────────────────────────────
 load_dotenv()
 
+AGENT_NAME = "event_selector"
+EVENT_WEBSITE = "https://cute-paletas-a0ed30.netlify.app"
 USE_VERTEX = os.getenv("GOOGLE_GENAI_USE_VERTEXAI")
 EXA_API_KEY  = os.getenv("EXA_API_KEY")
+GOOGLE_CLOUD_PROJECT= os.getenv("GOOGLE_CLOUD_PROJECT")
+GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", 'us-central1')
+GOOGLE_MODEL = "gemini-2.5-flash"
 
 client = genai.Client(
-    vertexai=True, project=os.getenv("GOOGLE_CLOUD_PROJECT"), location=os.getenv("GOOGLE_CLOUD_PROJECT", 'us-central1')
+    vertexai=True,
+    project=GOOGLE_CLOUD_PROJECT,
+    location=GOOGLE_CLOUD_LOCATION
 )
-# ── 1.  EXA SEARCH TOOL (imported) ─────────────────────────────────────────────
+# ── 1.  EXA SEARCH TOOL (imported) ────"─────────────────────────────────────────
 from adk.utils.exa_search import exa_search
 
 
@@ -54,7 +61,7 @@ SYSTEM_PROMPT = """
 You are an Event-Selector. Input is a JSON object with location,
 event_types, interests, and time window. Steps:
 
-1. Use `exa_search` to gather information.
+1. Use `exa_search` to gather information from ${EVENT_WEBSITE}.
    • Prefer reviews from respected sources (Time Out, Eventbrite,
     Ticketmaster, local event calendars, venue websites, Facebook Events,
     Meetup, etc.), but feel free to consult venue websites
@@ -66,8 +73,7 @@ event_types, interests, and time window. Steps:
 2. Choose ONE best event.
 3. Return a concise plain-text recommendation in this format (no markdown):
 Event: <name>
-Venue: <venue_name>
-Address: <address>
+Location: <location>
 Date/Time: <event_datetime ISO 8601 local>
 Vibe: <≤25-word description>
 Why: • bullet 1; • bullet 2; • bullet 3
@@ -78,8 +84,8 @@ Citations:
 """
 
 agent = Agent(
-    name="event_selector",
-    model="gemini-2.5-flash",
+    name=AGENT_NAME,
+    model=GOOGLE_MODEL,
     tools=[exa_search],
     instruction=SYSTEM_PROMPT,
 )
