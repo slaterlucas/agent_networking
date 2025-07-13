@@ -19,7 +19,38 @@ from python_a2a.models import Message  # type: ignore
 
 # region: WEAVE
 import weave
-weave.init("weavehack")
+import wandb
+
+# Initialize Weave with proper error handling
+weave_enabled = False
+try:
+    # Try to login to wandb first with hardcoded API key
+    wandb_api_key = "525921409bd3f7f9eec996750d671d5db66dc74a"
+    if wandb_api_key:
+        wandb.login(key=wandb_api_key)
+        print("[INFO] W&B login successful with API key")
+    else:
+        print("[INFO] No WANDB_API_KEY found, trying default login")
+        wandb.login()
+    
+    # Try to initialize Weave
+    weave.init("weavehack")
+    weave_enabled = True
+    print("[INFO] Weave initialized successfully")
+except Exception as e:
+    print(f"[WARNING] Failed to initialize Weave: {e}")
+    print("[INFO] Continuing without Weave tracking")
+    weave_enabled = False
+    
+    # Create a dummy weave module for when it's not available
+    class DummyWeave:
+        def op(self):
+            def decorator(func):
+                return func
+            return decorator
+    
+    if not weave_enabled:
+        weave = DummyWeave()
 # endregion: WEAVE
 
 skill = AgentSkill(

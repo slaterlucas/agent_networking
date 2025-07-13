@@ -37,7 +37,38 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import weave
-weave.init("weavehack")
+import wandb
+
+# Initialize Weave with proper error handling
+weave_enabled = False
+try:
+    # Try to login to wandb first with environment variable
+    wandb_api_key = "525921409bd3f7f9eec996750d671d5db66dc74a"
+    if wandb_api_key:
+        wandb.login(key=wandb_api_key)
+        print("[INFO] W&B login successful with API key")
+    else:
+        print("[INFO] No WANDB_API_KEY found, trying default login")
+        wandb.login()
+    
+    # Try to initialize Weave
+    weave.init("weavehack")
+    weave_enabled = True
+    print("[INFO] Weave initialized successfully")
+except Exception as e:
+    print(f"[WARNING] Failed to initialize Weave: {e}")
+    print("[INFO] Continuing without Weave tracking")
+    weave_enabled = False
+    
+    # Create a dummy weave module for when it's not available
+    class DummyWeave:
+        def op(self):
+            def decorator(func):
+                return func
+            return decorator
+    
+    if not weave_enabled:
+        weave = DummyWeave()
 
 
 # Configure genai client for Vertex AI
@@ -61,8 +92,8 @@ except Exception as e:
 # Global ADK session service
 adk_session_service = InMemorySessionService()
 
-@weave.op()
-def create_adk_agent(name: str, preferences: dict, system_prompt: str):
+# Apply weave decorator conditionally
+def _create_adk_agent(name: str, preferences: dict, system_prompt: str):
     """Create an ADK agent instance for chat."""
     chat_system_prompt = f"""You are {name}'s personal AI assistant. You have access to their preferences and can help with various tasks.
 
@@ -104,6 +135,12 @@ def create_adk_agent(name: str, preferences: dict, system_prompt: str):
     except Exception as e:
         print(f"[ERROR] Failed to create ADK agent: {e}")
         return None
+
+# Apply weave decorator conditionally
+if weave_enabled:
+    create_adk_agent = weave.op()(_create_adk_agent)
+else:
+    create_adk_agent = _create_adk_agent
 
 async def get_adk_runner(agent_instance, app_name: str, user_id: str, session_id: str):
     """Get or create an ADK runner for the session."""
@@ -541,8 +578,19 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
                     )
                     if resp.status_code == 200:
                         restaurant_result = resp.json()
+                        
+                        # Handle both task format and direct recommendation format
+                        recommendation_text = None
                         if "recommendation" in restaurant_result:
-                            final_response = f"I found a great restaurant recommendation for you!\n\n{restaurant_result['recommendation']}"
+                            recommendation_text = restaurant_result["recommendation"]
+                        elif "artifacts" in restaurant_result and restaurant_result["artifacts"]:
+                            # Extract from task format
+                            artifact = restaurant_result["artifacts"][0]
+                            if "parts" in artifact and artifact["parts"]:
+                                recommendation_text = artifact["parts"][0].get("text", "")
+                        
+                        if recommendation_text:
+                            final_response = f"I found a great restaurant recommendation for you!\n\n{recommendation_text}"
                             # Update conversation history with the final response (only if using fallback client)
                             if session_id in conversation_history and conversation_history[session_id]:
                                 conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
