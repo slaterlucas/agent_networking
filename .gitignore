@@ -58,6 +58,10 @@ temp/
 .env.*.local
 secrets.json
 credentials.json
+*.key
+*.token
+*secret*
+*credential*
 
 # Dependencies
 node_modules/
@@ -71,3 +75,18 @@ htmlcov/
 .tox/
 nosetests.xml
 coverage.xml
+
+# Weights & Biases (wandb) - contains sensitive logging data
+wandb/
+
+# Agent-specific logs and error files
+agents/agent_error.log
+agents/*.log
+
+# A2A Samples (external dependency - don't commit)
+a2a-samples/
+
+# Agent process files and temporary data
+*.pid
+*.lock
+agent_*.log
