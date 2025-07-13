@@ -1,6 +1,6 @@
 """
-restaurant_selector_adk.py
-LLM-driven restaurant picker powered by:
+concert_selector_adk.py
+LLM-driven concert picker powered by:
 
   • Exa web-search API                    (function-calling tool)
   • Google ADK Agent (Gemini-2.5-pro)     (Vertex AI / Cloud project)
@@ -55,23 +55,22 @@ from adk.utils.exa_search import exa_search
 
 # ── 2.  AGENT DEFINITION  ─────────────────────────────────────────────────────
 SYSTEM_PROMPT = """
-You are a Restaurant-Selector. Input is a JSON object with location,
-cuisines, diet, and time window. Steps:
+You are a Concert-Selector. Input is a JSON object with location,
+genres, artist preferences, and time window. Steps:
 
 1. Use `exa_search` to gather information.
-   • Prefer reviews from respected sources (Michelin Guide, Eater,
-    The Infatuation, Bon Appétit, Google Maps, Yelp, TripAdvisor, Reddit food
-    threads, etc.), but feel free to consult a restaurant’s official site
-    for menu or address details.
+   • Prefer information from respected sources (Ticketmaster, Songkick,
+    Bandsintown, venue websites, music blogs, Reddit concert threads, etc.), 
+    but feel free to consult artist's official sites for tour details.
 2. You will use `exa_search` tool.
-   • First call: find ~5 candidate restaurants, based off parameters based off
+   • First call: find ~5 candidate concerts/shows, based off parameters based off
      user's preferences.
-   • For each candidate, call exa_search again to fetch reviews.
-2. Choose ONE best restaurant.
+   • For each candidate, call exa_search again to fetch reviews or details.
+2. Choose ONE best concert/show.
 3. Return a concise plain-text recommendation in this format (no markdown):
-Restaurant: <name>
-Address: <address>
-Suggested Time: <booking_time ISO 8601 local>
+Concert: <artist/band name>
+Venue: <venue name and address>
+Date & Time: <concert_date_time ISO 8601 local>
 Vibe: <≤25-word description>
 Why: • bullet 1; • bullet 2; • bullet 3
 Citations:
@@ -81,7 +80,7 @@ Citations:
 """
 
 agent = Agent(
-    name="restaurant_selector",
+    name="concert_selector",
     model="gemini-2.5-flash",
     tools=[exa_search],
     instruction=SYSTEM_PROMPT,
@@ -89,31 +88,24 @@ agent = Agent(
 
 _session_service = InMemorySessionService()
 
-def _get_sync_runner(agent: Agent, app_name: str, user_id: str, session_id: str) -> Runner:
+async def _get_async_runner(agent: Agent, app_name: str, user_id: str, session_id: str) -> Runner:
     """
-    Create (or reuse) a session and hand back a synchronous Runner.
+    Create (or reuse) a session and hand back an async Runner.
     """
-    async def _setup() -> Runner:
-        await _session_service.create_session(
-            app_name=app_name,
-            user_id=user_id,
-            session_id=session_id,
-        )
-        return Runner(agent=agent, app_name=app_name, session_service=_session_service)
+    await _session_service.create_session(
+        app_name=app_name,
+        user_id=user_id,
+        session_id=session_id,
+    )
+    return Runner(agent=agent, app_name=app_name, session_service=_session_service)
 
-    # In worker threads there may be no running event loop; asyncio.run will
-    # create one as needed.  It also works fine when called from the main
-    # thread (as long as no loop is currently running).
-
-    return asyncio.run(_setup())
-
-def suggest_restaurant(prefs: dict) -> str:
+async def suggest_concert_async(prefs: dict) -> str:
     """
     Call the agent once through ADK and return the plain-text recommendation.
     """
-    runner = _get_sync_runner(
+    runner = await _get_async_runner(
         agent=agent,
-        app_name="restaurant_selector_app",
+        app_name="concert_selector_app",
         user_id="demo_user",
         session_id="demo_session",
     )
@@ -130,14 +122,31 @@ def suggest_restaurant(prefs: dict) -> str:
 
     raise RuntimeError("Agent did not emit a final response")
 
+def suggest_concert(prefs: dict) -> str:
+    """
+    Sync wrapper for suggest_concert_async.
+    """
+    import asyncio
+    try:
+        # Try to get the current event loop
+        loop = asyncio.get_running_loop()
+        # If we're in an async context, we need to use a different approach
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, suggest_concert_async(prefs))
+            return future.result()
+    except RuntimeError:
+        # No event loop running, safe to use asyncio.run
+        return asyncio.run(suggest_concert_async(prefs))
+
 
 # ── 4.  DEMO ─────────────────────────────────────────────────────
 if __name__ == "__main__":
     prefs_example = {
-        "location": "North Beach, San Francisco",
-        "cuisines": ["japanese"],
-        "diet": ["pescatarian"],
-        "time_window": ["2025-07-15T18:00", "2025-07-15T21:00"],
-        "budget": "high",
+        "location": "San Francisco Bay Area",
+        "genres": ["rock", "indie"],
+        "artist_preferences": ["emerging artists"],
+        "time_window": ["2025-07-15T18:00", "2025-07-15T23:00"],
+        "budget": "medium",
     }
-    print(suggest_restaurant(prefs_example))
+    print(suggest_concert(prefs_example)) 

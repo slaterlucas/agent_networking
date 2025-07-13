@@ -1,0 +1,18 @@
+{
+  "name": "concert-selector",
+  "description": "LLM-driven concert picker using Exa + Gemini-2.5",
+  "port": 8081,
+  "skills": [
+    {
+      "id": "concert-selector",
+      "name": "concert-selector",
+      "description": "Find concerts and live music events based on preferences",
+      "tags": ["concert", "music", "picker", "events"],
+      "examples": [
+        "I'm looking for an indie rock concert in San Francisco this weekend",
+        "Find me a jazz show in New York next week, moderate budget",
+        "I want to see electronic music in Los Angeles, any good venues?"
+      ]
+    }
+  ]
+} 

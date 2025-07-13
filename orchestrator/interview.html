@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preferences Interview - Agent Networking</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+        .step {
+            display: none;
+        }
+        .step.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+        h2 {
+            color: #444;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+        .step-description {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .checkbox-group, .radio-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .checkbox-item, .radio-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .checkbox-item:hover, .radio-item:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .checkbox-item input, .radio-item input {
+            width: auto;
+            margin-right: 10px;
+        }
+        .tags-input {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 50px;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: text;
+        }
+        .tag {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .tag-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            min-width: 150px;
+            font-size: 16px;
+        }
+        .slider-container {
+            margin: 20px 0;
+        }
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            gap: 20px;
+        }
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .completion-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .completion-summary h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .preference-summary {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Preferences Interview</h1>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        
+        <div id="status"></div>
+        
+        <!-- Step 1: Food & Dining -->
+        <div class="step active" id="step-food">
+            <h2>🍽️ Food & Dining</h2>
+            <p class="step-description">Tell us about your food preferences and dining style</p>
+            
+            <div class="form-group">
+                <label>Preferred Cuisines (add as many as you like):</label>
+                <div class="tags-input" id="cuisines-tags">
+                    <input type="text" class="tag-input" placeholder="Type cuisine and press Enter..." id="cuisines-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Dietary Restrictions:</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="vegetarian" value="vegetarian">
+                        <label for="vegetarian">Vegetarian</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="vegan" value="vegan">
+                        <label for="vegan">Vegan</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="pescatarian" value="pescatarian">
+                        <label for="pescatarian">Pescatarian</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="gluten_free" value="gluten_free">
+                        <label for="gluten_free">Gluten Free</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="dairy_free" value="dairy_free">
+                        <label for="dairy_free">Dairy Free</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="none" value="none">
+                        <label for="none">None</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Budget Level:</label>
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="budget_low" name="budget" value="low">
+                        <label for="budget_low">$ - Budget-conscious</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="budget_medium" name="budget" value="medium" checked>
+                        <label for="budget_medium">$$ - Moderate</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="budget_high" name="budget" value="high">
+                        <label for="budget_high">$$$ - Premium</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="budget_luxury" name="budget" value="luxury">
+                        <label for="budget_luxury">$$$$ - Luxury</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Preferred Atmosphere:</label>
+                <div class="tags-input" id="atmosphere-tags">
+                    <input type="text" class="tag-input" placeholder="e.g., cozy, lively, quiet, outdoor..." id="atmosphere-input">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 2: Music & Entertainment -->
+        <div class="step" id="step-music">
+            <h2>🎵 Music & Entertainment</h2>
+            <p class="step-description">What kind of music and entertainment do you enjoy?</p>
+            
+            <div class="form-group">
+                <label>Music Genres:</label>
+                <div class="tags-input" id="genres-tags">
+                    <input type="text" class="tag-input" placeholder="e.g., jazz, rock, electronic..." id="genres-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Favorite Artists:</label>
+                <div class="tags-input" id="artists-tags">
+                    <input type="text" class="tag-input" placeholder="Add your favorite artists..." id="artists-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Concert Preferences:</label>
+                <div class="tags-input" id="concert-tags">
+                    <input type="text" class="tag-input" placeholder="e.g., intimate venues, festivals, arenas..." id="concert-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Openness to New Music:</label>
+                <div class="slider-container">
+                    <input type="range" min="1" max="10" value="5" class="slider" id="music-openness">
+                    <div class="slider-labels">
+                        <span>Stick to favorites</span>
+                        <span id="music-openness-value">5</span>
+                        <span>Love discovering new music</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 3: Social Preferences -->
+        <div class="step" id="step-social">
+            <h2>👥 Social Preferences</h2>
+            <p class="step-description">How do you like to socialize and interact with others?</p>
+            
+            <div class="form-group">
+                <label>Preferred Group Size:</label>
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="group_intimate" name="group_size" value="intimate">
+                        <label for="group_intimate">Intimate (1-4 people)</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="group_small" name="group_size" value="small">
+                        <label for="group_small">Small (5-10 people)</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="group_medium" name="group_size" value="medium">
+                        <label for="group_medium">Medium (10-25 people)</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="group_large" name="group_size" value="large">
+                        <label for="group_large">Large (25+ people)</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="group_flexible" name="group_size" value="flexible" checked>
+                        <label for="group_flexible">Flexible</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Communication Style:</label>
+                <select id="communication-style">
+                    <option value="introverted">Introverted</option>
+                    <option value="balanced" selected>Balanced</option>
+                    <option value="extroverted">Extroverted</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Social Energy Level:</label>
+                <div class="slider-container">
+                    <input type="range" min="1" max="10" value="5" class="slider" id="social-energy">
+                    <div class="slider-labels">
+                        <span>Prefer quiet interactions</span>
+                        <span id="social-energy-value">5</span>
+                        <span>Love high-energy social events</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Topics You Enjoy Discussing:</label>
+                <div class="tags-input" id="topics-tags">
+                    <input type="text" class="tag-input" placeholder="e.g., technology, travel, books..." id="topics-input">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 4: Professional -->
+        <div class="step" id="step-professional">
+            <h2>💼 Professional Interests</h2>
+            <p class="step-description">Tell us about your work and professional interests</p>
+            
+            <div class="form-group">
+                <label>Industry/Field:</label>
+                <input type="text" id="industry" placeholder="e.g., Technology, Healthcare, Finance...">
+            </div>
+            
+            <div class="form-group">
+                <label>Career Stage:</label>
+                <select id="career-stage">
+                    <option value="">Select your career stage</option>
+                    <option value="student">Student</option>
+                    <option value="early_career">Early Career</option>
+                    <option value="mid_career">Mid Career</option>
+                    <option value="senior">Senior</option>
+                    <option value="executive">Executive</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Professional Interests:</label>
+                <div class="tags-input" id="professional-tags">
+                    <input type="text" class="tag-input" placeholder="e.g., AI, leadership, startups..." id="professional-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Networking Style:</label>
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="networking_casual" name="networking" value="casual">
+                        <label for="networking_casual">Casual</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="networking_balanced" name="networking" value="balanced" checked>
+                        <label for="networking_balanced">Balanced</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="networking_formal" name="networking" value="formal">
+                        <label for="networking_formal">Formal</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 5: Location & Time -->
+        <div class="step" id="step-location_time">
+            <h2>📍 Location & Timing</h2>
+            <p class="step-description">Where are you based and when do you prefer activities?</p>
+            
+            <div class="form-group">
+                <label>Home Location:</label>
+                <input type="text" id="home-location" placeholder="e.g., San Francisco, CA">
+            </div>
+            
+            <div class="form-group">
+                <label>Preferred Areas/Neighborhoods:</label>
+                <div class="tags-input" id="areas-tags">
+                    <input type="text" class="tag-input" placeholder="e.g., Mission District, Downtown..." id="areas-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Preferred Times:</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="time_morning" value="morning">
+                        <label for="time_morning">Morning</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="time_afternoon" value="afternoon">
+                        <label for="time_afternoon">Afternoon</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="time_evening" value="evening">
+                        <label for="time_evening">Evening</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="time_night" value="night">
+                        <label for="time_night">Night</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Planning Style:</label>
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="planning_last_minute" name="planning" value="last_minute">
+                        <label for="planning_last_minute">Last Minute</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="planning_few_days" name="planning" value="few_days">
+                        <label for="planning_few_days">Few Days Ahead</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="planning_week" name="planning" value="week_ahead">
+                        <label for="planning_week">Week Ahead</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="planning_far" name="planning" value="far_ahead" checked>
+                        <label for="planning_far">Far Ahead</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 6: Personality & Values -->
+        <div class="step" id="step-personality">
+            <h2>✨ Personality & Values</h2>
+            <p class="step-description">Help us understand your personality and what matters to you</p>
+            
+            <div class="form-group">
+                <label>Personality Traits:</label>
+                <div class="tags-input" id="personality-tags">
+                    <input type="text" class="tag-input" placeholder="e.g., adventurous, analytical, creative..." id="personality-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Values:</label>
+                <div class="tags-input" id="values-tags">
+                    <input type="text" class="tag-input" placeholder="e.g., sustainability, authenticity, efficiency..." id="values-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Communication Style:</label>
+                <select id="overall-communication">
+                    <option value="formal">Formal</option>
+                    <option value="casual">Casual</option>
+                    <option value="friendly" selected>Friendly</option>
+                    <option value="professional">Professional</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>How Proactive Should Your Agent Be?</label>
+                <div class="slider-container">
+                    <input type="range" min="1" max="10" value="5" class="slider" id="proactivity">
+                    <div class="slider-labels">
+                        <span>Wait for instructions</span>
+                        <span id="proactivity-value">5</span>
+                        <span>Take initiative</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Completion Step -->
+        <div class="step" id="step-complete">
+            <h2>🎉 Interview Complete!</h2>
+            <p class="step-description">Ready to create your personalized agent</p>
+            
+            <div class="completion-summary" id="completion-summary">
+                <h3>Your Preferences Summary:</h3>
+                <div id="preferences-display"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>Agent Name:</label>
+                <input type="text" id="agent-name" placeholder="My Personal Agent" value="My Personal Agent">
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button type="button" class="btn-secondary" id="prevBtn" onclick="changeStep(-1)">Previous</button>
+            <button type="button" class="btn-primary" id="nextBtn" onclick="changeStep(1)">Next</button>
+            <button type="button" class="btn-success" id="createBtn" onclick="createAgent()" style="display: none;">Create My Agent</button>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000';
+        let currentStep = 0;
+        let jwt = localStorage.getItem('jwt');
+        
+        const steps = ['food', 'music', 'social', 'professional', 'location_time', 'personality', 'complete'];
+        const stepData = {};
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateProgress();
+            setupSliders();
+            setupTagInputs();
+            
+            // Check authentication
+            if (!jwt) {
+                showStatus('Please login first', 'error');
+                return;
+            }
+            
+            loadInterviewStatus();
+        });
+        
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+        
+        function setupSliders() {
+            const sliders = ['music-openness', 'social-energy', 'proactivity'];
+            sliders.forEach(id => {
+                const slider = document.getElementById(id);
+                const valueDisplay = document.getElementById(id + '-value');
+                
+                slider.addEventListener('input', function() {
+                    valueDisplay.textContent = this.value;
+                });
+            });
+        }
+        
+        function setupTagInputs() {
+            const tagInputs = [
+                'cuisines', 'atmosphere', 'genres', 'artists', 'concert',
+                'topics', 'professional', 'areas', 'personality', 'values'
+            ];
+            
+            tagInputs.forEach(setupTagInput);
+        }
+        
+        function setupTagInput(name) {
+            const input = document.getElementById(name + '-input');
+            const container = document.getElementById(name + '-tags');
+            
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && this.value.trim()) {
+                    e.preventDefault();
+                    addTag(name, this.value.trim());
+                    this.value = '';
+                }
+            });
+            
+            container.addEventListener('click', function() {
+                input.focus();
+            });
+        }
+        
+        function addTag(name, value) {
+            const container = document.getElementById(name + '-tags');
+            const input = document.getElementById(name + '-input');
+            
+            // Check if tag already exists
+            const existingTags = container.querySelectorAll('.tag');
+            for (let tag of existingTags) {
+                if (tag.textContent.replace('×', '').trim() === value) {
+                    return;
+                }
+            }
+            
+            const tag = document.createElement('div');
+            tag.className = 'tag';
+            tag.innerHTML = `
+                ${value}
+                <span class="tag-remove" onclick="removeTag(this)">×</span>
+            `;
+            
+            container.insertBefore(tag, input);
+        }
+        
+        function removeTag(element) {
+            element.parentElement.remove();
+        }
+        
+        function getTags(name) {
+            const container = document.getElementById(name + '-tags');
+            const tags = container.querySelectorAll('.tag');
+            return Array.from(tags).map(tag => 
+                tag.textContent.replace('×', '').trim()
+            );
+        }
+        
+        function updateProgress() {
+            const progress = ((currentStep + 1) / steps.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            
+            // Update button visibility
+            document.getElementById('prevBtn').style.display = currentStep === 0 ? 'none' : 'block';
+            
+            if (currentStep === steps.length - 1) {
+                document.getElementById('nextBtn').style.display = 'none';
+                document.getElementById('createBtn').style.display = 'block';
+            } else {
+                document.getElementById('nextBtn').style.display = 'block';
+                document.getElementById('createBtn').style.display = 'none';
+            }
+        }
+        
+        function changeStep(direction) {
+            if (direction === 1) {
+                // Save current step data
+                saveCurrentStep();
+            }
+            
+            // Hide current step
+            document.getElementById('step-' + steps[currentStep]).classList.remove('active');
+            
+            // Update step
+            currentStep += direction;
+            if (currentStep < 0) currentStep = 0;
+            if (currentStep >= steps.length) currentStep = steps.length - 1;
+            
+            // Show new step
+            document.getElementById('step-' + steps[currentStep]).classList.add('active');
+            
+            // Update progress
+            updateProgress();
+            
+            // If we're at the completion step, show summary
+            if (currentStep === steps.length - 1) {
+                showCompletionSummary();
+            }
+        }
+        
+        function saveCurrentStep() {
+            const stepId = steps[currentStep];
+            const data = {};
+            
+            switch(stepId) {
+                case 'food':
+                    data.cuisines = getTags('cuisines');
+                    data.dietary_restrictions = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+                    data.budget_level = document.querySelector('input[name="budget"]:checked').value;
+                    data.atmosphere_preferences = getTags('atmosphere');
+                    break;
+                    
+                case 'music':
+                    data.genres = getTags('genres');
+                    data.artists = getTags('artists');
+                    data.concert_preferences = getTags('concert');
+                    data.discovery_openness = parseInt(document.getElementById('music-openness').value);
+                    break;
+                    
+                case 'social':
+                    data.group_size_preference = document.querySelector('input[name="group_size"]:checked').value;
+                    data.communication_style = document.getElementById('communication-style').value;
+                    data.social_energy = parseInt(document.getElementById('social-energy').value);
+                    data.conversation_topics = getTags('topics');
+                    break;
+                    
+                case 'professional':
+                    data.industry = document.getElementById('industry').value;
+                    data.career_stage = document.getElementById('career-stage').value;
+                    data.interests = getTags('professional');
+                    data.networking_style = document.querySelector('input[name="networking"]:checked').value;
+                    break;
+                    
+                case 'location_time':
+                    data.home_location = document.getElementById('home-location').value;
+                    data.preferred_areas = getTags('areas');
+                    data.preferred_times = Array.from(document.querySelectorAll('input[id^="time_"]:checked')).map(cb => cb.value);
+                    data.advance_planning = document.querySelector('input[name="planning"]:checked').value;
+                    break;
+                    
+                case 'personality':
+                    data.personality_traits = getTags('personality');
+                    data.values = getTags('values');
+                    data.communication_style = document.getElementById('overall-communication').value;
+                    data.proactivity_level = parseInt(document.getElementById('proactivity').value);
+                    break;
+            }
+            
+            stepData[stepId] = data;
+            
+            // Save to backend
+            submitStepData(stepId, data);
+        }
+        
+        async function submitStepData(stepId, data) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/interview/step`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${jwt}`
+                    },
+                    body: JSON.stringify({
+                        step_id: stepId,
+                        data: data
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                console.log(`Step ${stepId} saved successfully`);
+                
+            } catch (error) {
+                console.error('Failed to save step:', error);
+                showStatus(`Failed to save step: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadInterviewStatus() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/interview/status`, {
+                    headers: {
+                        'Authorization': `Bearer ${jwt}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const status = await response.json();
+                console.log('Interview status:', status);
+                
+            } catch (error) {
+                console.error('Failed to load interview status:', error);
+                showStatus(`Failed to load status: ${error.message}`, 'error');
+            }
+        }
+        
+        function showCompletionSummary() {
+            const summaryDiv = document.getElementById('preferences-display');
+            let html = '';
+            
+            Object.entries(stepData).forEach(([stepId, data]) => {
+                const stepTitle = steps.find(s => s === stepId) || stepId;
+                html += `<div class="preference-summary">
+                    <strong>${stepTitle.charAt(0).toUpperCase() + stepId.slice(1)}:</strong>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </div>`;
+            });
+            
+            summaryDiv.innerHTML = html;
+        }
+        
+        async function createAgent() {
+            showStatus('Creating your personalized agent...', 'info');
+            
+            try {
+                // First complete the interview
+                const completeResponse = await fetch(`${BACKEND_URL}/interview/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${jwt}`
+                    }
+                });
+                
+                if (!completeResponse.ok) {
+                    throw new Error(`Failed to complete interview: HTTP ${completeResponse.status}`);
+                }
+                
+                const completeData = await completeResponse.json();
+                
+                // Then create the agent
+                const agentName = document.getElementById('agent-name').value;
+                const createResponse = await fetch(`${BACKEND_URL}/agents/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${jwt}`
+                    },
+                    body: JSON.stringify({
+                        name: agentName
+                    })
+                });
+                
+                if (!createResponse.ok) {
+                    throw new Error(`Failed to create agent: HTTP ${createResponse.status}`);
+                }
+                
+                const agentData = await createResponse.json();
+                
+                showStatus(`🎉 Success! Your agent "${agentName}" has been created!`, 'success');
+                
+                // Show the system prompt
+                const summaryDiv = document.getElementById('preferences-display');
+                summaryDiv.innerHTML = `
+                    <h4>Your Agent's System Prompt:</h4>
+                    <pre style="white-space: pre-wrap; font-size: 12px; background: #f8f9fa; padding: 15px; border-radius: 8px;">${completeData.system_prompt}</pre>
+                    <p><strong>Agent URL:</strong> ${agentData.agent_url}</p>
+                `;
+                
+            } catch (error) {
+                console.error('Failed to create agent:', error);
+                showStatus(`❌ Failed to create agent: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html> 
