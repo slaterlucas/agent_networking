@@ -2,3 +2,7 @@
 # Ignore Python byte-code
 __pycache__/
 *.pyc
+
+*.env
+# Ignore environment files
+.env
