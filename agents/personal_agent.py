@@ -22,6 +22,8 @@ import os
 import textwrap
 from fastapi import FastAPI
 from python_a2a import A2AServer, AgentCard, AgentSkill
+import json, os, textwrap, argparse  # ensure json imported earlier
+from google import genai  # NEW import for Gemini LLM
 
 
 def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
@@ -29,7 +31,18 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 
     • Publishes a single *echo* skill so we have something callable.
     • Uses the same python-a2a SDK as the discovery registry & restaurant agent.
+    • Loads user preferences from environment variables to personalize behavior.
     """
+    
+    # Load preferences from environment
+    preferences_json = os.getenv("PREFERENCES_JSON", "{}")
+    system_prompt = ""
+    
+    try:
+        preferences = json.loads(preferences_json)
+        system_prompt = preferences.get("_system_prompt", "")
+    except json.JSONDecodeError:
+        system_prompt = ""
 
     echo_skill = AgentSkill(
         id="echo",
@@ -39,13 +52,21 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 
     card = AgentCard(
         name=f"{name}'s Agent",
-        description="Minimal personal agent (python-a2a demo)",
+        description="Minimal personal agent (python-a2a demo) with LLM chat",
         url=f"http://localhost:{port}/",
         version="0.1.0",
         default_input_modes=["text"],
         default_output_modes=["text"],
         skills=[echo_skill],
     )
+
+    # Add chat skill powered by Gemini
+    chat_skill = AgentSkill(
+        id="chat",
+        name="Chat",
+        description="General conversational skill backed by Gemini LLM.",
+    )
+    card.skills.append(chat_skill)
 
     app = FastAPI()
 
@@ -82,6 +103,16 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 
     def _echo_impl(body: dict):  # noqa: ANN001
         """Purely synchronous echo helper run in a worker thread."""
+        # If we have a system prompt, enhance the response with personality
+        if system_prompt and body.get("input"):
+            # Simple enhancement - in a real implementation, you'd use an LLM here
+            enhanced_response = {
+                "original_input": body.get("input"),
+                "personalized_response": f"Based on your preferences, I understand you're asking about: {body.get('input')}",
+                "system_context": "I'm using your preferences to provide personalized responses.",
+                "preferences_loaded": bool(system_prompt)
+            }
+            return enhanced_response
         return body
 
     @app.post("/tasks/send")
@@ -104,18 +135,43 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 
     import requests
 
+    # Initialise Gemini model once
+    try:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+    except Exception:
+        model = None  # Fallback if credentials not set
+
     @app.post("/invoke")
     async def invoke(body: dict):  # noqa: ANN001
-        """Entry point that supports two skills:
+        """Entry point that supports skills:
 
-        • echo (default)
+        • chat (default)
         • restaurant_recommendation – forwards to selector
         """
 
-        skill = body.get("skill", "echo")
+        skill = body.get("skill", "chat")
 
         if skill == "restaurant_recommendation":
             prefs = body.get("input", {})
+            
+            # Enhance with user's stored preferences
+            if system_prompt:
+                try:
+                    stored_prefs = json.loads(preferences_json)
+                    food_prefs = stored_prefs.get("food", {})
+                    
+                    # Merge stored preferences with request
+                    if "cuisines" not in prefs and food_prefs.get("cuisines"):
+                        prefs["cuisines"] = food_prefs["cuisines"]
+                    if "dietary_restrictions" not in prefs and food_prefs.get("dietary_restrictions"):
+                        prefs["dietary_restrictions"] = food_prefs["dietary_restrictions"]
+                    if "budget_level" not in prefs and food_prefs.get("budget_level"):
+                        prefs["budget_level"] = food_prefs["budget_level"]
+                    if "atmosphere_preferences" not in prefs and food_prefs.get("atmosphere_preferences"):
+                        prefs["atmosphere_preferences"] = food_prefs["atmosphere_preferences"]
+                        
+                except (json.JSONDecodeError, KeyError):
+                    pass  # Use original prefs if parsing fails
 
             def _call_selector() -> dict:
                 try:
@@ -133,8 +189,21 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
             selector_reply = await anyio.to_thread.run_sync(_call_selector)
             return selector_reply
 
-        # Fallback to echo behaviour
-        return await tasks_send(body)
+        # Fallback to chat LLM
+        user_input = body.get("input", "")
+
+        async def _call_llm() -> dict:
+            if model is None:
+                return {"reply": "LLM not configured."}
+            message_list = []
+            if system_prompt:
+                message_list.append({"role": "system", "parts": [system_prompt]})
+            message_list.append({"role": "user", "parts": [user_input]})
+            resp = model.generate_content(message_list)
+            return {"reply": resp.text}
+
+        llm_reply = await anyio.to_thread.run_sync(_call_llm)
+        return llm_reply
 
     # Automatically register this agent with the discovery registry (if available).
     # Falls back to http://localhost:9000 which is the demo default.

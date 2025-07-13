@@ -37,7 +37,7 @@ dependencies = [
     # Web framework & Agent communication
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.24.0",
-    "python-a2a>=0.2.1",
+    "python-a2a>=0.5.0",
     "anyio>=3.7.0",
     
     # Orchestrator service dependencies

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Networking - Login Test</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover { background: #3367d6; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .user-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Agent Networking - Login Test</h1>
+        
+        <div id="status"></div>
+        
+        <div id="login-section">
+            <h2>Step 1: Login with Google</h2>
+            <p>Click below to authenticate with Google OAuth. This will request calendar permissions.</p>
+            <button onclick="initiateGoogleLogin()">Login with Google</button>
+        </div>
+        
+        <div id="user-section" style="display: none;">
+            <h2>✅ Logged In Successfully!</h2>
+            <div id="user-info" class="user-info"></div>
+            <button onclick="testAuthenticatedRequest()">Test Authenticated Request</button>
+            <button onclick="logout()">Logout</button>
+        </div>
+        
+        <div id="debug-section">
+            <h3>Debug Info</h3>
+            <pre id="debug-log"></pre>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000';
+        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // Replace with your actual client ID
+        const REDIRECT_URI = window.location.origin + window.location.pathname;
+        
+        let currentUser = null;
+        let jwt = localStorage.getItem('jwt');
+        
+        // Initialize on page load
+        window.onload = function() {
+            // Check if we have a stored JWT
+            if (jwt) {
+                testAuthenticatedRequest();
+            }
+            
+            // Check if we're returning from Google OAuth
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            if (code) {
+                handleOAuthCallback(code);
+            }
+        };
+        
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+            log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function log(message) {
+            const debugLog = document.getElementById('debug-log');
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.textContent += `[${timestamp}] ${message}\n`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        
+        function initiateGoogleLogin() {
+            if (GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
+                showStatus('⚠️ Please set your GOOGLE_CLIENT_ID in the HTML file', 'error');
+                return;
+            }
+            
+            const params = new URLSearchParams({
+                client_id: GOOGLE_CLIENT_ID,
+                redirect_uri: REDIRECT_URI,
+                response_type: 'code',
+                scope: 'openid email profile https://www.googleapis.com/auth/calendar.events',
+                access_type: 'offline',
+                prompt: 'consent'
+            });
+            
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+            log(`Redirecting to Google OAuth: ${authUrl}`);
+            window.location.href = authUrl;
+        }
+        
+        async function handleOAuthCallback(code) {
+            showStatus('🔄 Processing Google OAuth callback...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/auth/google/callback`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        redirect_uri: REDIRECT_URI
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(`HTTP ${response.status}: ${error.detail}`);
+                }
+                
+                const data = await response.json();
+                jwt = data.jwt;
+                currentUser = data.user;
+                
+                // Store JWT for future requests
+                localStorage.setItem('jwt', jwt);
+                
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                showUserInfo();
+                showStatus('✅ Successfully logged in!', 'success');
+                
+            } catch (error) {
+                showStatus(`❌ Login failed: ${error.message}`, 'error');
+                log(`OAuth callback error: ${error}`);
+            }
+        }
+        
+        function showUserInfo() {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('user-section').style.display = 'block';
+            
+            const userInfoDiv = document.getElementById('user-info');
+            userInfoDiv.innerHTML = `
+                <strong>Name:</strong> ${currentUser.name}<br>
+                <strong>Email:</strong> ${currentUser.email}<br>
+                <strong>User ID:</strong> ${currentUser.id}<br>
+                <strong>Preferences:</strong> ${JSON.stringify(currentUser.preferences, null, 2)}
+            `;
+        }
+        
+        async function testAuthenticatedRequest() {
+            if (!jwt) {
+                showStatus('❌ No JWT token found', 'error');
+                return;
+            }
+            
+            showStatus('🔄 Testing authenticated request...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${jwt}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        showStatus('❌ JWT expired or invalid', 'error');
+                        logout();
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const user = await response.json();
+                currentUser = user;
+                showUserInfo();
+                showStatus('✅ Authenticated request successful!', 'success');
+                
+            } catch (error) {
+                showStatus(`❌ Authenticated request failed: ${error.message}`, 'error');
+                log(`Auth test error: ${error}`);
+            }
+        }
+        
+        function logout() {
+            jwt = null;
+            currentUser = null;
+            localStorage.removeItem('jwt');
+            
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('user-section').style.display = 'none';
+            
+            showStatus('👋 Logged out', 'info');
+        }
+    </script>
+</body>
+</html> 
