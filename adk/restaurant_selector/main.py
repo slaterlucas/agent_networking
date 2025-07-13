@@ -97,7 +97,11 @@ def _get_sync_runner(agent: Agent, app_name: str, user_id: str, session_id: str)
         )
         return Runner(agent=agent, app_name=app_name, session_service=_session_service)
 
-    return asyncio.get_event_loop().run_until_complete(_setup())
+    # In worker threads there may be no running event loop; asyncio.run will
+    # create one as needed.  It also works fine when called from the main
+    # thread (as long as no loop is currently running).
+
+    return asyncio.run(_setup())
 
 def suggest_restaurant(prefs: dict) -> str:
     """

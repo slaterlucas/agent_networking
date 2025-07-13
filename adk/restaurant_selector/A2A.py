@@ -49,8 +49,8 @@ CARD = AgentCard(
     description="LLM-driven restaurant picker using Exa + Gemini-2.5",
     url=os.getenv("SERVICE_URL", "http://localhost:8080/"),
     version="0.1.0",
-    default_input_modes=["json"],
-    default_output_modes=["json"],
+    default_input_modes=["text"],
+    default_output_modes=["text"],
     capabilities={"streaming": False},
     skills=[skill],
 )

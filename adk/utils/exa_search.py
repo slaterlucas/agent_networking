@@ -28,10 +28,15 @@ def exa_search(
         "query": query,
         "numResults": num_results,
     }
+
+    def _clean(dom: str) -> str:
+        # Exa expects base domains, not paths.
+        return dom.split("/", 1)[0]
+
     if include_domains:
-        body["includeDomains"] = include_domains
+        body["includeDomains"] = [_clean(d) for d in include_domains]
     if exclude_domains:
-        body["excludeDomains"] = exclude_domains
+        body["excludeDomains"] = [_clean(d) for d in exclude_domains]
     if start_published_date is None:
         # Only recent pages (last 2 years) as a fallback
         start_published_date = (

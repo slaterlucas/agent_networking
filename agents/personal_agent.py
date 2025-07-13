@@ -31,7 +31,7 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
     • Uses the same python-a2a SDK as the discovery registry & restaurant agent.
     """
 
-    skill = AgentSkill(
+    echo_skill = AgentSkill(
         id="echo",
         name="Echo",
         description="Echoes back whatever the user says.",
@@ -44,7 +44,7 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
         version="0.1.0",
         default_input_modes=["text"],
         default_output_modes=["text"],
-        skills=[skill],
+        skills=[echo_skill],
     )
 
     app = FastAPI()
@@ -60,6 +60,78 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
     # receives the right object and avoids the `'FastAPI' object has no
     # attribute 'to_dict'` error.
     server.agent_card = card  # type: ignore[attr-defined]
+
+    # Additional skill: forward restaurant prefs to Restaurant-Selector
+
+    selector_skill = AgentSkill(
+        id="restaurant_recommendation",
+        name="Restaurant Recommendation",
+        description="Forwards preference JSON to the Restaurant-Selector agent and returns its reply.",
+    )
+
+    # Attach the extra skill to the card
+    card.skills.append(selector_skill)
+
+    # ------------------------------------------------------------------
+    # Minimal HTTP routes so `/tasks/send` works out-of-the-box with
+    # FastAPI (python_a2a currently registers Flask routes only).
+    # ------------------------------------------------------------------
+
+    from fastapi import HTTPException
+    import anyio
+
+    def _echo_impl(body: dict):  # noqa: ANN001
+        """Purely synchronous echo helper run in a worker thread."""
+        return body
+
+    @app.post("/tasks/send")
+    async def tasks_send(body: dict):  # noqa: ANN001
+        try:
+            output = await anyio.to_thread.run_sync(_echo_impl, body)
+            return {
+                "id": body.get("id", "task-1"),
+                "status": {"state": "completed"},
+                "artifacts": [
+                    {
+                        "parts": [
+                            {"type": "text", "text": str(output)}
+                        ]
+                    }
+                ],
+            }
+        except Exception as exc:  # pragma: no cover
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    import requests
+
+    @app.post("/invoke")
+    async def invoke(body: dict):  # noqa: ANN001
+        """Entry point that supports two skills:
+
+        • echo (default)
+        • restaurant_recommendation – forwards to selector
+        """
+
+        skill = body.get("skill", "echo")
+
+        if skill == "restaurant_recommendation":
+            prefs = body.get("input", {})
+
+            def _call_selector() -> dict:
+                resp = requests.post(
+                    "http://localhost:8080/invoke",
+                    headers={"Content-Type": "application/json"},
+                    json=prefs,
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                return resp.json()
+
+            selector_reply = await anyio.to_thread.run_sync(_call_selector)
+            return selector_reply
+
+        # Fallback to echo behaviour
+        return await tasks_send(body)
 
     # Automatically register this agent with the discovery registry (if available).
     # Falls back to http://localhost:9000 which is the demo default.
