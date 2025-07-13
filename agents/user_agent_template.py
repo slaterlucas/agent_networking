@@ -152,12 +152,32 @@ class UserAgentExecutor(AgentExecutor):
     async def execute(self, context: RequestContext, event_queue: EventQueue, **kwargs) -> None:
         """Execute tasks for this user agent using proper A2A SDK pattern."""
         try:
-            # Extract message from context
+            # Enhanced A2A message logging
             message = context.message
+            message_id = getattr(message, 'messageId', 'unknown')
+            sender_role = getattr(message, 'role', 'unknown')
+            
+            # Log incoming A2A message
+            logger.info(f"[A2A_IN] {self.user_profile.name}'s agent received message from {sender_role} (ID: {message_id})")
+            self.wandb.log({
+                "a2a_message_in": True,
+                "sender_role": sender_role,
+                "message_id": message_id,
+                "agent_name": self.user_profile.name
+            })
+            
             if not message or not message.parts:
                 response = f"Hello! I'm {self.user_profile.name}'s agent. How can I help you today?"
                 task = self._build_task_response(response, context)
                 await event_queue.enqueue_event(task)
+                
+                # Log outgoing A2A message
+                logger.info(f"[A2A_OUT] {self.user_profile.name}'s agent sent greeting response")
+                self.wandb.log({
+                    "a2a_message_out": True,
+                    "response_type": "greeting",
+                    "agent_name": self.user_profile.name
+                })
                 return
             
             # Get the text content from the first part (A2A SDK uses 'kind' and 'text')
@@ -177,62 +197,51 @@ class UserAgentExecutor(AgentExecutor):
                 response = f"Hello! I'm {self.user_profile.name}'s agent. How can I help you today?"
                 task = self._build_task_response(response, context)
                 await event_queue.enqueue_event(task)
+                
+                # Log outgoing A2A message
+                logger.info(f"[A2A_OUT] {self.user_profile.name}'s agent sent greeting response (no text found)")
+                self.wandb.log({
+                    "a2a_message_out": True,
+                    "response_type": "greeting_no_text",
+                    "agent_name": self.user_profile.name
+                })
                 return
 
-            # Log the request
+            # Log the request with enhanced details
             log_data = {
                 "request_type": "a2a_message",
-                "messageId": getattr(message, 'messageId', None),
-                "role": getattr(message, 'role', None),
-                "text": text
+                "messageId": message_id,
+                "role": sender_role,
+                "text": text,
+                "agent_name": self.user_profile.name,
+                "timestamp": datetime.now().isoformat()
             }
             self.wandb.log(log_data)
+            logger.info(f"[A2A_PROCESS] {self.user_profile.name}'s agent processing: '{text[:100]}...'")
             
-            # Process the message based on content
-            if "search" in text.lower():
-                query = text.replace("search", "").strip()
-                if query:
-                    results = await self.exa_client.search(query)
-                    response = f"Search results for '{query}':\n{json.dumps(results[:2], indent=2)}"
-                else:
-                    response = "Please provide a search query."
-            elif "networking" in text.lower() or "similar" in text.lower():
-                # Use networking to find similar people
-                try:
-                    similar_people = self.networking.find_similar_people(self.user_profile.name, k=3)
-                    response = f"People similar to {self.user_profile.name}:\n"
-                    for name, score in similar_people:
-                        response += f"- {name} (similarity: {score:.3f})\n"
-                except Exception as e:
-                    response = f"Networking feature for {self.user_profile.name}: I can help you find similar people based on your interests in {', '.join(self.user_profile.interests)}."
-            elif "cluster" in text.lower():
-                # Show cluster information
-                try:
-                    clusters = self.networking.cluster_people(n_clusters=4, method='kmeans')
-                    user_cluster = clusters.get(self.user_profile.name, "Unknown")
-                    cluster_members = self.networking.get_cluster_members(user_cluster)
-                    response = f"{self.user_profile.name} is in cluster {user_cluster} with: {', '.join(cluster_members)}"
-                except Exception as e:
-                    response = f"Clustering analysis for {self.user_profile.name} based on interests: {', '.join(self.user_profile.interests)}"
-            elif "recommendation" in text.lower():
-                if "restaurant" in text.lower():
-                    query = f"restaurants in {self.user_profile.location} for {', '.join(self.user_profile.cuisine_preferences)}"
-                    results = await self.exa_client.search(query)
-                    response = f"Restaurant recommendations for {self.user_profile.name}:\n{json.dumps(results[:2], indent=2)}"
-                else:
-                    query = f"activities and events in {self.user_profile.location} for {', '.join(self.user_profile.interests)}"
-                    results = await self.exa_client.search(query)
-                    response = f"Activity recommendations for {self.user_profile.name}:\n{json.dumps(results[:2], indent=2)}"
-            else:
-                response = f"Hello! I'm {self.user_profile.name}'s agent. I can help with:\n- Search queries\n- Networking opportunities (find similar people)\n- Clustering analysis\n- Personalized recommendations\n\nWhat would you like to do?"
+            # Enhanced LLM-like processing using Exa API (your existing LLM service)
+            response = await self._process_with_llm(text)
             
             # Send response as a proper Task object
             task = self._build_task_response(response, context)
             await event_queue.enqueue_event(task)
             
+            # Log outgoing A2A message
+            logger.info(f"[A2A_OUT] {self.user_profile.name}'s agent sent response (length: {len(response)})")
+            self.wandb.log({
+                "a2a_message_out": True,
+                "response_length": len(response),
+                "agent_name": self.user_profile.name,
+                "processing_time": datetime.now().isoformat()
+            })
+            
         except Exception as e:
-            logger.error(f"Error in user agent {self.user_profile.name}: {e}")
-            self.wandb.log({"error": str(e)})
+            logger.error(f"[A2A_ERROR] Error in user agent {self.user_profile.name}: {e}")
+            self.wandb.log({
+                "a2a_error": True,
+                "error": str(e),
+                "agent_name": self.user_profile.name
+            })
             with open("agents/agent_error.log", "a") as f:
                 f.write(f"\n--- Exception for {self.user_profile.name} ---\n")
                 f.write(traceback.format_exc())
@@ -240,6 +249,124 @@ class UserAgentExecutor(AgentExecutor):
             error_response = f"Sorry, I encountered an error: {str(e)}"
             task = self._build_task_response(error_response, context)
             await event_queue.enqueue_event(task)
+    
+    async def _process_with_llm(self, text: str) -> str:
+        """Process text using Exa API as the LLM service with enhanced logging."""
+        try:
+            logger.info(f"[LLM_START] {self.user_profile.name}'s agent calling Exa API for: '{text[:50]}...'")
+            self.wandb.log({
+                "llm_call_start": True,
+                "query": text[:100],
+                "agent_name": self.user_profile.name
+            })
+            
+            # Process the message based on content using Exa API as LLM
+            if "search" in text.lower():
+                query = text.replace("search", "").strip()
+                if query:
+                    logger.info(f"[LLM_SEARCH] {self.user_profile.name}'s agent searching for: '{query}'")
+                    results = await self.exa_client.search(query)
+                    response = f"Search results for '{query}':\n{json.dumps(results[:2], indent=2)}"
+                    
+                    self.wandb.log({
+                        "llm_search": True,
+                        "query": query,
+                        "results_count": len(results),
+                        "agent_name": self.user_profile.name
+                    })
+                else:
+                    response = "Please provide a search query."
+            elif "networking" in text.lower() or "similar" in text.lower():
+                # Use networking to find similar people
+                logger.info(f"[LLM_NETWORKING] {self.user_profile.name}'s agent finding similar people")
+                try:
+                    similar_people = self.networking.find_similar_people(self.user_profile.name, k=3)
+                    response = f"People similar to {self.user_profile.name}:\n"
+                    for name, score in similar_people:
+                        response += f"- {name} (similarity: {score:.3f})\n"
+                    
+                    self.wandb.log({
+                        "llm_networking": True,
+                        "similar_people_count": len(similar_people),
+                        "agent_name": self.user_profile.name
+                    })
+                except Exception as e:
+                    response = f"Networking feature for {self.user_profile.name}: I can help you find similar people based on your interests in {', '.join(self.user_profile.interests)}."
+            elif "cluster" in text.lower():
+                # Show cluster information
+                logger.info(f"[LLM_CLUSTERING] {self.user_profile.name}'s agent analyzing clusters")
+                try:
+                    clusters = self.networking.cluster_people(n_clusters=4, method='kmeans')
+                    user_cluster = clusters.get(self.user_profile.name, "Unknown")
+                    cluster_members = self.networking.get_cluster_members(user_cluster)
+                    response = f"{self.user_profile.name} is in cluster {user_cluster} with: {', '.join(cluster_members)}"
+                    
+                    self.wandb.log({
+                        "llm_clustering": True,
+                        "user_cluster": user_cluster,
+                        "cluster_members_count": len(cluster_members),
+                        "agent_name": self.user_profile.name
+                    })
+                except Exception as e:
+                    response = f"Clustering analysis for {self.user_profile.name} based on interests: {', '.join(self.user_profile.interests)}"
+            elif "recommendation" in text.lower():
+                if "restaurant" in text.lower():
+                    query = f"restaurants in {self.user_profile.location} for {', '.join(self.user_profile.cuisine_preferences)}"
+                    logger.info(f"[LLM_RESTAURANT] {self.user_profile.name}'s agent searching restaurants: '{query}'")
+                    results = await self.exa_client.search(query)
+                    response = f"Restaurant recommendations for {self.user_profile.name}:\n{json.dumps(results[:2], indent=2)}"
+                    
+                    self.wandb.log({
+                        "llm_restaurant_recommendation": True,
+                        "location": self.user_profile.location,
+                        "cuisine_preferences": self.user_profile.cuisine_preferences,
+                        "results_count": len(results),
+                        "agent_name": self.user_profile.name
+                    })
+                else:
+                    query = f"activities and events in {self.user_profile.location} for {', '.join(self.user_profile.interests)}"
+                    logger.info(f"[LLM_ACTIVITY] {self.user_profile.name}'s agent searching activities: '{query}'")
+                    results = await self.exa_client.search(query)
+                    response = f"Activity recommendations for {self.user_profile.name}:\n{json.dumps(results[:2], indent=2)}"
+                    
+                    self.wandb.log({
+                        "llm_activity_recommendation": True,
+                        "location": self.user_profile.location,
+                        "interests": self.user_profile.interests,
+                        "results_count": len(results),
+                        "agent_name": self.user_profile.name
+                    })
+            else:
+                # General conversation - use Exa API to find relevant information
+                query = f"{text} {self.user_profile.name} {', '.join(self.user_profile.interests)}"
+                logger.info(f"[LLM_GENERAL] {self.user_profile.name}'s agent processing general query: '{query[:50]}...'")
+                results = await self.exa_client.search(query)
+                response = f"Hello! I'm {self.user_profile.name}'s agent. Based on your query, here's what I found:\n{json.dumps(results[:1], indent=2)}\n\nI can help with:\n- Search queries\n- Networking opportunities (find similar people)\n- Clustering analysis\n- Personalized recommendations"
+                
+                self.wandb.log({
+                    "llm_general": True,
+                    "query": text[:100],
+                    "results_count": len(results),
+                    "agent_name": self.user_profile.name
+                })
+            
+            logger.info(f"[LLM_END] {self.user_profile.name}'s agent completed processing")
+            self.wandb.log({
+                "llm_call_end": True,
+                "response_length": len(response),
+                "agent_name": self.user_profile.name
+            })
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"[LLM_ERROR] Error in LLM processing for {self.user_profile.name}: {e}")
+            self.wandb.log({
+                "llm_error": True,
+                "error": str(e),
+                "agent_name": self.user_profile.name
+            })
+            return f"Sorry, I encountered an error while processing your request: {str(e)}"
     
     async def cancel(self, context: RequestContext, event_queue: EventQueue, **kwargs) -> None:
         """Handle task cancellation (required by A2A SDK)."""

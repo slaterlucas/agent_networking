@@ -1,5 +1,5 @@
-
 import { MapPin, Users, MessageSquare, Clock } from 'lucide-react';
+import GoogleMap from './GoogleMap';
 
 interface Location {
   id: string;
@@ -38,6 +38,33 @@ const mockLocations: Location[] = [
     agents: ["Event Coordinator"],
     status: 'active',
     description: 'Outdoor networking event'
+  },
+  {
+    id: '4',
+    name: 'Golden Gate Bridge',
+    type: 'meeting',
+    coordinates: { lat: 37.8199, lng: -122.4783 },
+    agents: ["Alice's Agent", "Charlie's Agent"],
+    status: 'active',
+    description: 'Scenic meeting spot'
+  },
+  {
+    id: '5',
+    name: 'Fisherman\'s Wharf',
+    type: 'event',
+    coordinates: { lat: 37.8080, lng: -122.4177 },
+    agents: ["Bob's Agent", "Event Coordinator"],
+    status: 'planned',
+    description: 'Waterfront networking event'
+  },
+  {
+    id: '6',
+    name: 'Mission District Café',
+    type: 'restaurant',
+    coordinates: { lat: 37.7599, lng: -122.4148 },
+    agents: ["Restaurant Finder"],
+    status: 'active',
+    description: 'Cozy local café with great coffee'
   }
 ];
 
@@ -60,19 +87,26 @@ function AgentMap() {
         </div>
       </div>
 
-      {/* Map Placeholder */}
+      {/* Google Maps */}
       <div className="card p-6">
-        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-96 flex items-center justify-center">
-          <div className="text-center">
-            <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Interactive Map
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Map integration would show agent locations and activities here
-            </p>
-          </div>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Agent Locations
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Interactive map showing agent locations and activities
+          </p>
         </div>
+        <GoogleMap
+          center={{ lat: 37.7749, lng: -122.4194 }}
+          zoom={13}
+          height="400px"
+          markers={mockLocations.map(location => ({
+            position: location.coordinates,
+            title: location.name,
+            info: `${location.description} • ${location.agents.length} agents • ${location.status}`
+          }))}
+        />
       </div>
 
       {/* Location List */}

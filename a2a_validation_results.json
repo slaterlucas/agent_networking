@@ -1,0 +1,96 @@
+{
+  "timestamp": 1752436096.1278589,
+  "summary": {
+    "total_tests": 13,
+    "successful_tests": 13,
+    "failed_tests": 0,
+    "success_rate": 100.0
+  },
+  "results": [
+    {
+      "test": "a2a_endpoint",
+      "agent": "Alice",
+      "success": true
+    },
+    {
+      "test": "a2a_endpoint",
+      "agent": "Bob",
+      "success": true
+    },
+    {
+      "test": "a2a_endpoint",
+      "agent": "Charlie",
+      "success": true
+    },
+    {
+      "test": "llm_integration",
+      "success": true,
+      "agent": "Alice",
+      "response_length": 1203,
+      "has_results": true
+    },
+    {
+      "test": "llm_integration",
+      "success": true,
+      "agent": "Bob",
+      "response_length": 1203,
+      "has_results": true
+    },
+    {
+      "test": "llm_integration",
+      "success": true,
+      "agent": "Charlie",
+      "response_length": 1203,
+      "has_results": true
+    },
+    {
+      "test": "agent_communication",
+      "success": true,
+      "sender": "Alice",
+      "receiver": "Bob",
+      "task_id": "task-200370"
+    },
+    {
+      "test": "agent_communication",
+      "success": true,
+      "sender": "Bob",
+      "receiver": "Charlie",
+      "task_id": "task-200372"
+    },
+    {
+      "test": "agent_communication",
+      "success": true,
+      "sender": "Charlie",
+      "receiver": "Alice",
+      "task_id": "task-200374"
+    },
+    {
+      "test": "networking_functionality",
+      "success": true,
+      "agent": "Alice",
+      "response_length": 316,
+      "has_networking": true
+    },
+    {
+      "test": "networking_functionality",
+      "success": true,
+      "agent": "Bob",
+      "response_length": 317,
+      "has_networking": true
+    },
+    {
+      "test": "networking_functionality",
+      "success": true,
+      "agent": "Charlie",
+      "response_length": 318,
+      "has_networking": true
+    },
+    {
+      "test": "end_to_end_flow",
+      "success": true,
+      "alice_task": "task-200377",
+      "bob_task": "task-200381",
+      "charlie_task": "task-200381"
+    }
+  ]
+}

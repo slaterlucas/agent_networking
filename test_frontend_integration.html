@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend-Backend Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Frontend-Backend Integration Test</h1>
+    
+    <div class="test-section">
+        <h2>Backend Health Check</h2>
+        <button onclick="testHealth()">Test Backend Health</button>
+        <div id="health-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Agents List</h2>
+        <button onclick="testAgents()">Get Agents</button>
+        <div id="agents-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Chat with Alice</h2>
+        <input type="text" id="message-input" placeholder="Enter your message..." style="width: 300px; padding: 5px;">
+        <button onclick="testChat()">Send Message</button>
+        <div id="chat-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>System Stats</h2>
+        <button onclick="testStats()">Get Stats</button>
+        <div id="stats-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        async function makeRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                throw error;
+            }
+        }
+        
+        function displayResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.className = `test-section ${isError ? 'error' : 'success'}`;
+            element.innerHTML = `
+                <h3>${isError ? 'Error' : 'Success'}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+        
+        async function testHealth() {
+            try {
+                const result = await makeRequest('/health');
+                displayResult('health-result', result);
+            } catch (error) {
+                displayResult('health-result', { error: error.message }, true);
+            }
+        }
+        
+        async function testAgents() {
+            try {
+                const result = await makeRequest('/api/agents');
+                displayResult('agents-result', result);
+            } catch (error) {
+                displayResult('agents-result', { error: error.message }, true);
+            }
+        }
+        
+        async function testChat() {
+            const message = document.getElementById('message-input').value;
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            try {
+                const result = await makeRequest('/api/chat', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        message: message,
+                        agent_id: 'alice'
+                    })
+                });
+                displayResult('chat-result', result);
+            } catch (error) {
+                displayResult('chat-result', { error: error.message }, true);
+            }
+        }
+        
+        async function testStats() {
+            try {
+                const result = await makeRequest('/api/stats');
+                displayResult('stats-result', result);
+            } catch (error) {
+                displayResult('stats-result', { error: error.message }, true);
+            }
+        }
+        
+        // Auto-run health check on page load
+        window.onload = function() {
+            testHealth();
+        };
+    </script>
+</body>
+</html> 
