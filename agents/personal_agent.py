@@ -118,12 +118,15 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
             prefs = body.get("input", {})
 
             def _call_selector() -> dict:
-                resp = requests.post(
-                    "http://localhost:8080/invoke",
-                    headers={"Content-Type": "application/json"},
-                    json=prefs,
-                    timeout=30,
-                )
+                try:
+                    resp = requests.post(
+                        "http://localhost:8080/invoke",
+                        headers={"Content-Type": "application/json"},
+                        json=prefs,
+                        timeout=90,
+                    )
+                except requests.exceptions.ReadTimeout:
+                    return {"error": "Selector timed out"}
                 resp.raise_for_status()
                 return resp.json()
 
