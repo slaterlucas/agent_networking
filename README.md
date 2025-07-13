@@ -1,5 +1,11 @@
 # Agent Networking: Collaborative Personal Agents
 
+## 📱 User Interface
+
+![Akin - Collaborative Agent Network](assets/Screenshot%202025-07-13%20at%202.09.35%20PM.png)
+
+*The modern, glassmorphism-styled interface of Akin, featuring side-by-side chat and network views with AI-powered collaborative agent networking.*
+
 ## 🎯 Project Vision
 
 **Agent Networking** is a revolutionary approach to personal AI assistance where each individual has their own personalized agent that understands their preferences, habits, and needs. These personal agents can then collaborate with each other and specialized service agents to solve complex, multi-person coordination tasks.

@@ -306,9 +306,84 @@ async def startup():
                 },
             ))
 
+        # AUTO-SPAWN DEMO AGENTS FOR TRUE A2A COMMUNICATION
+        print("[INFO] Auto-spawning demo agents for agent-to-agent communication...")
+        
+        # Get all demo users that should have agents
+        demo_users = [
+            ("Demo User", "demo@example.com", 12000),
+            ("Bob", "bob@example.com", 12001),
+            ("Alice", "alice@example.com", 12002),
+            ("Charlie", "charlie@example.com", 12003),
+            ("Diana", "diana@example.com", 12004)
+        ]
+        
+        for name, email, port in demo_users:
+            user = await database.fetch_one(users.select().where(users.c.email == email))
+            if user and user.get("preferences", {}).get("_system_prompt"):
+                user_id = user["id"]
+                
+                # Check if agent is already running
+                if user_id not in running_agents:
+                    try:
+                        # Prepare preferences with user ID
+                        prefs = dict(user["preferences"])
+                        prefs["_user_id"] = user_id
+                        
+                        env = {
+                            **os.environ,
+                            "PREFERENCES_JSON": json.dumps(prefs),
+                            "A2A_REGISTRY": os.getenv("A2A_REGISTRY", "http://localhost:9000"),
+                        }
+                        
+                        # Spawn agent process
+                        import sys
+                        process = subprocess.Popen([
+                            sys.executable,
+                            "-m",
+                            "agents.personal_agent",
+                            "--name", name,
+                            "--port", str(port),
+                        ], env=env)
+                        
+                        # Track the running agent
+                        running_agents[user_id] = {
+                            "process": process,
+                            "port": port,
+                            "name": name
+                        }
+                        
+                        print(f"[INFO] ✅ Spawned {name}'s agent on port {port}")
+                        
+                    except Exception as e:
+                        print(f"[ERROR] ❌ Failed to spawn {name}'s agent: {e}")
+                else:
+                    print(f"[INFO] ⏭️ {name}'s agent already running on port {running_agents[user_id]['port']}")
+            else:
+                print(f"[WARNING] ⚠️ {name} has no preferences or system prompt - skipping agent spawn")
+        
+        print(f"[INFO] 🎉 Auto-spawning complete! {len(running_agents)} agents running")
+
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
+    
+    # Clean up all running agents
+    print("[INFO] Shutting down all running agents...")
+    for user_id, agent_info in running_agents.items():
+        try:
+            process = agent_info["process"]
+            process.terminate()
+            process.wait(timeout=5)
+            print(f"[INFO] ✅ Stopped {agent_info['name']}'s agent")
+        except subprocess.TimeoutExpired:
+            process.kill()
+            print(f"[INFO] 🔥 Force-killed {agent_info['name']}'s agent")
+        except Exception as e:
+            print(f"[ERROR] ❌ Error stopping {agent_info['name']}'s agent: {e}")
+    
+    running_agents.clear()
+    print("[INFO] 🎉 All agents stopped")
 
 # Helper functions
 async def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
@@ -354,23 +429,22 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials | None = De
         )
 
 async def exchange_code_for_tokens(code: str, redirect_uri: str) -> dict:
-    """Exchange OAuth code for Google tokens."""
-    import httpx
-    
+    """Exchange authorization code for tokens."""
     token_url = "https://oauth2.googleapis.com/token"
     
     data = {
-        "client_id": GOOGLE_CLIENT_ID,
-        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
         "code": code,
-        "grant_type": "authorization_code",
+        "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+        "access_type": "offline",
+        "prompt": "consent"
     }
     
-    async with httpx.AsyncClient() as client:
-        response = await client.post(token_url, data=data)
-        response.raise_for_status()
-        return response.json()
+    response = google_requests.post(token_url, data=data)
+    response.raise_for_status()
+    
+    return response.json()
 
 # Routes
 @app.get("/")
@@ -430,29 +504,28 @@ if not DEMO_MODE:
                     )
                 )
             
-            # Generate JWT
-            jwt_payload = {"user_id": user_id}
+            # Create JWT token
+            jwt_payload = {
+                "user_id": user_id,
+                "email": email,
+                "name": name
+            }
             jwt_token = jwt.encode(jwt_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
             
-            # Fetch updated user data
-            user = await database.fetch_one(
-                users.select().where(users.c.id == user_id)
-            )
+            # Return user info
+            user_info = {
+                "id": user_id,
+                "email": email,
+                "name": name,
+                "preferences": existing_user.get("preferences", {}) if existing_user else {}
+            }
             
-            return GoogleCallbackResponse(
-                jwt=jwt_token,
-                user={
-                    "id": user["id"],
-                    "email": user["email"],
-                    "name": user["name"],
-                    "preferences": user["preferences"]
-                }
-            )
+            return GoogleCallbackResponse(jwt=jwt_token, user=user_info)
             
         except Exception as e:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Authentication failed: {str(e)}"
+                status_code=400,
+                detail=f"OAuth callback failed: {str(e)}"
             )
 
 @app.get("/auth/me")
@@ -462,13 +535,13 @@ async def get_current_user_info(user: dict = Depends(get_current_user)):
         "id": user["id"],
         "email": user["email"],
         "name": user["name"],
-        "preferences": user["preferences"]
+        "preferences": user.get("preferences", {})
     }
 
 @app.get("/preferences")
 async def get_preferences(user: dict = Depends(get_current_user)):
     """Get user preferences."""
-    return user["preferences"]
+    return user.get("preferences", {})
 
 @app.put("/preferences")
 async def update_preferences(
@@ -476,17 +549,24 @@ async def update_preferences(
     user: dict = Depends(get_current_user)
 ):
     """Update user preferences."""
+    # Generate system prompt from preferences
+    system_prompt = generate_system_prompt(request.preferences, user["name"])
+    
+    # Add system prompt to preferences
+    prefs = {**request.preferences, "_system_prompt": system_prompt}
+    
+    # Update in database
     await database.execute(
         users.update()
         .where(users.c.id == user["id"])
-        .values(preferences=request.preferences)
+        .values(preferences={**prefs, "_system_prompt": system_prompt})
     )
-    return {"message": "Preferences updated successfully"}
+    
+    return {"message": "Preferences updated successfully", "system_prompt": system_prompt}
 
-# Interview endpoints
 @app.get("/interview/steps")
 async def get_interview_steps():
-    """Get the list of interview steps."""
+    """Get interview steps configuration."""
     return {"steps": INTERVIEW_STEPS}
 
 @app.post("/interview/step")
@@ -498,32 +578,30 @@ async def submit_interview_step(
     # Get current preferences
     current_prefs = user.get("preferences", {})
     
-    # Update the specific step data
-    current_prefs[request.step_id] = request.data
+    # Update with new step data
+    current_prefs.update(request.data)
     
-    # Save back to database
+    # Save to database
     await database.execute(
         users.update()
         .where(users.c.id == user["id"])
         .values(preferences=current_prefs)
     )
     
-    return {"message": f"Step {request.step_id} saved successfully"}
+    return {"message": "Step submitted successfully", "preferences": current_prefs}
 
 @app.get("/interview/status")
 async def get_interview_status(user: dict = Depends(get_current_user)):
-    """Get the current interview completion status."""
+    """Get interview completion status."""
     prefs = user.get("preferences", {})
-    completed_steps = []
     
-    for step in INTERVIEW_STEPS:
-        if step["id"] in prefs and prefs[step["id"]]:
-            completed_steps.append(step["id"])
+    # Check if interview is complete (has system prompt)
+    is_complete = "_system_prompt" in prefs and prefs["_system_prompt"]
     
     return {
-        "completed_steps": completed_steps,
-        "total_steps": len(INTERVIEW_STEPS),
-        "is_complete": len(completed_steps) == len(INTERVIEW_STEPS)
+        "is_complete": is_complete,
+        "preferences": prefs,
+        "system_prompt": prefs.get("_system_prompt", "")
     }
 
 @app.post("/interview/complete")
@@ -531,35 +609,30 @@ async def complete_interview(user: dict = Depends(get_current_user)):
     """Mark interview as complete and generate system prompt."""
     prefs = user.get("preferences", {})
     
-    # Validate that all steps are completed
-    for step in INTERVIEW_STEPS:
-        if step["id"] not in prefs:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Interview step '{step['id']}' is not completed"
-            )
-    
-    # Parse preferences into structured format
-    try:
-        user_preferences = UserPreferences.parse_obj(prefs)
-        system_prompt = generate_system_prompt(user_preferences)
-        
-        # Store the generated system prompt
-        await database.execute(
-            users.update()
-            .where(users.c.id == user["id"])
-            .values(preferences={**prefs, "_system_prompt": system_prompt})
-        )
-        
-        return {
-            "message": "Interview completed successfully",
-            "system_prompt": system_prompt
-        }
-    except Exception as e:
+    if not prefs:
         raise HTTPException(
             status_code=400,
-            detail=f"Failed to process preferences: {str(e)}"
+            detail="No preferences found. Please complete the interview first."
         )
+    
+    # Generate system prompt
+    system_prompt = generate_system_prompt(prefs, user["name"])
+    
+    # Update preferences with system prompt
+    prefs["_system_prompt"] = system_prompt
+    
+    # Save to database
+    await database.execute(
+        users.update()
+        .where(users.c.id == user["id"])
+        .values(preferences={**prefs, "_system_prompt": system_prompt})
+    )
+    
+    return {
+        "message": "Interview completed successfully",
+        "system_prompt": system_prompt,
+        "preferences": prefs
+    }
 
 # Agent management
 @app.post("/agents/create")
@@ -675,8 +748,5 @@ async def stop_agent(user: dict = Depends(get_current_user)):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    """Health check endpoint."""
+    return {"status": "healthy", "running_agents": len(running_agents)} 
