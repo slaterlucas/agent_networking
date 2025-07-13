@@ -1,0 +1,61 @@
+_wandb:
+    value:
+        cli_version: 0.21.0
+        e:
+            bpxzxm3wqfee09paaxgzjfrcxm0fn5l3:
+                apple:
+                    ecpuCores: 2
+                    gpuCores: 16
+                    memoryGb: 16
+                    name: Apple M1 Pro
+                    pcpuCores: 8
+                    ramTotalBytes: "17179869184"
+                    swapTotalBytes: "17179869184"
+                codePath: test_agent_communication.py
+                codePathLocal: test_agent_communication.py
+                cpu_count: 10
+                cpu_count_logical: 10
+                disk:
+                    /:
+                        total: "494384795648"
+                        used: "481773535232"
+                email: harsh.pv07@gmail.com
+                executable: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3
+                git:
+                    commit: 59f2ce44b23c648ff2a9b60302b2fd6e07f64ba8
+                    remote: https://github.com/slaterlucas/agent_networking.git
+                host: JYZs-MacBook-ProX-3.local
+                memory:
+                    total: "17179869184"
+                os: macOS-15.5-arm64-arm-64bit
+                program: /Users/Tiger/Dropbox/agent_networking/test_agent_communication.py
+                python: CPython 3.11.6
+                root: /Users/Tiger/Dropbox/agent_networking
+                startedAt: "2025-07-13T00:32:08.035842Z"
+                writerId: bpxzxm3wqfee09paaxgzjfrcxm0fn5l3
+        m: []
+        python_version: 3.11.6
+        t:
+            "1":
+                - 5
+                - 53
+            "2":
+                - 5
+                - 53
+            "3":
+                - 13
+                - 16
+                - 24
+            "4": 3.11.6
+            "5": 0.21.0
+            "12": 0.21.0
+            "13": darwin-arm64
+interests:
+    value:
+        - technology
+        - programming
+        - hiking
+location:
+    value: San Francisco
+user_name:
+    value: Alice

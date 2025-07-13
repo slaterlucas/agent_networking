@@ -1,0 +1,17 @@
+{
+  "os":  "macOS-15.5-arm64-arm-64bit",
+  "python":  "CPython 3.11.6",
+  "startedAt":  "2025-07-13T00:13:35.569788Z",
+  "program":  "/Users/Tiger/Dropbox/agent_networking/agents/alice_agent.py",
+  "codePath":  "agents/alice_agent.py",
+  "codePathLocal":  "agents/alice_agent.py",
+  "git":  {
+    "remote":  "https://github.com/slaterlucas/agent_networking.git",
+    "commit":  "59f2ce44b23c648ff2a9b60302b2fd6e07f64ba8"
+  },
+  "email":  "harsh.pv07@gmail.com",
+  "root":  "/Users/Tiger/Dropbox/agent_networking",
+  "host":  "JYZs-MacBook-ProX-3.local",
+  "executable":  "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
+  "writerId":  "cvlhuewoq60ie6y0y46lczda6i2wzjnm"
+}

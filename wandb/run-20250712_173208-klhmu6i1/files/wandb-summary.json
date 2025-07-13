@@ -1,0 +1,1 @@
+{"_runtime":12,"_timestamp":1.7523667412003782e+09,"_step":12,"error":"1 validation error for Artifact\nartifactId\n  Field required [type=missing, input_value={'id': '529f3bad-a505-4f6...n I help you today?\"))]}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing","_wandb":{"runtime":12}}

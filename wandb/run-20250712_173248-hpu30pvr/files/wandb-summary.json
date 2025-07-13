@@ -1,0 +1,1 @@
+{"_wandb":{"runtime":13},"_runtime":13,"_step":12,"error":"1 validation error for TaskStatus\ntimestamp\n  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 7, 12, 17, 33, 1, 917798), input_type=datetime]\n    For further information visit https://errors.pydantic.dev/2.11/v/string_type","_timestamp":1.75236678191794e+09}
