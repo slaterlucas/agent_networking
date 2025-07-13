@@ -131,8 +131,8 @@ Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
 - (Optional) Weights & Biases account for experiment tracking
 
 ### Gcloud help
-(https://cloud.google.com/vertex-ai/docs/general/iam-permissions)
 (https://cloud.google.com/vertex-ai/generative-ai/docs/sdks/overview)
+(https://cloud.google.com/vertex-ai/docs/general/iam-permissions)
 
 ### Installation
 
