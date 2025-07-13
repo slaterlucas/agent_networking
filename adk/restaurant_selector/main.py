@@ -1,192 +1,134 @@
-import os
-import json
+"""
+restaurant_selector_adk.py
+LLM-driven restaurant picker powered by:
+
+  • Exa web-search API                    (function-calling tool)
+  • Google ADK Agent (Gemini-2.5-pro)     (Vertex AI / Cloud project)
+
+Setup
+-----
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies using uv
+uv sync
+
+# Create .env file with your credentials
+cp config.example.env .env
+# Edit .env with your actual values
+
+# Set up Google Cloud credentials (if using Google ADK)
+export GOOGLE_CLOUD_PROJECT=<your-gcp-project>
+export GOOGLE_CLOUD_LOCATION=us-central1         # or whatever region hosts Gemini
+export EXA_API_KEY=<your-exa-key>
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json   # service-account w/ gen-ai perms
+
+# Run the agent
+uv run python main.py
+"""
+
+from __future__ import annotations
+import json, os, typing as t
+from dotenv import load_dotenv
+from google.adk.agents import Agent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
 import asyncio
-from typing import Dict, List, Any
-from exa_py import Exa
+from google import genai
+# ── 0.  ENV & BOOTSTRAP  ──────────────────────────────────────────────────────
+load_dotenv()
+
+USE_VERTEX = os.getenv("GOOGLE_GENAI_USE_VERTEXAI")
+EXA_API_KEY  = os.getenv("EXA_API_KEY")
+
+client = genai.Client(
+    vertexai=True, project=os.getenv("GOOGLE_CLOUD_PROJECT"), location='us-central1'
+)
+# ── 1.  EXA SEARCH TOOL (imported) ─────────────────────────────────────────────
+from adk.utils.exa_search import exa_search
 
 
-class RestaurantSelectorAgent:
+# ── 2.  AGENT DEFINITION  ─────────────────────────────────────────────────────
+SYSTEM_PROMPT = """
+You are a Restaurant-Selector. Input is a JSON object with location,
+cuisines, diet, and time window. Steps:
+
+1. Use `exa_search` to gather information.
+   • Prefer reviews from respected sources (Michelin Guide, Eater,
+    The Infatuation, Bon Appétit, Google Maps, Yelp, TripAdvisor, Reddit food
+    threads, etc.), but feel free to consult a restaurant’s official site
+    for menu or address details.
+2. You will use `exa_search` tool.
+   • First call: find ~5 candidate restaurants, based off parameters based off
+     user's preferences.
+   • For each candidate, call exa_search again to fetch reviews.
+2. Choose ONE best restaurant.
+3. Return a concise plain-text recommendation in this format (no markdown):
+Restaurant: <name>
+Address: <address>
+Suggested Time: <booking_time ISO 8601 local>
+Vibe: <≤25-word description>
+Why: • bullet 1; • bullet 2; • bullet 3
+Citations:
+  <url1>  – label 1
+  <url2>  – label 2
+}
+"""
+
+agent = Agent(
+    name="restaurant_selector",
+    model="gemini-2.5-flash",
+    tools=[exa_search],
+    instruction=SYSTEM_PROMPT,
+)
+
+_session_service = InMemorySessionService()
+
+def _get_sync_runner(agent: Agent, app_name: str, user_id: str, session_id: str) -> Runner:
     """
-    ADK Restaurant Selector Agent integrated with Exa
-    Searches and selects restaurants based on user criteria
+    Create (or reuse) a session and hand back a synchronous Runner.
     """
-    
-    def __init__(self, config_path: str = "config.json"):
-        """Initialize the restaurant selector agent with configuration"""
-        self.config = self._load_config(config_path)
-        self.exa = Exa(api_key=os.getenv("EXA_API_KEY"))
-        
-    def _load_config(self, config_path: str) -> Dict[str, Any]:
-        """Load configuration from JSON file"""
-        try:
-            with open(config_path, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            print(f"Config file {config_path} not found, using defaults")
-            return self._default_config()
-    
-    def _default_config(self) -> Dict[str, Any]:
-        """Default configuration for restaurant selector"""
-        return {
-            "search_params": {
-                "num_results": 10,
-                "use_autoprompt": True
-            },
-            "cuisine_types": ["italian", "japanese", "mexican", "chinese", "american", "thai", "indian", "french"],
-            "price_range": {"min": 1, "max": 4},  # 1-4 $ rating
-            "rating_threshold": 4.0,
-            "distance_radius": 25,  # miles
-            "dietary_restrictions": ["vegetarian", "vegan", "gluten-free", "halal", "kosher"]
-        }
-    
-    async def search_restaurants(self, query: str, location: str = None, cuisine: str = None) -> List[Dict[str, Any]]:
-        """Search for restaurants using Exa API"""
-        try:
-            # Construct search query
-            search_query = f"{query} restaurants"
-            if location:
-                search_query += f" in {location}"
-            if cuisine:
-                search_query += f" {cuisine} cuisine"
-            
-            # Search using Exa
-            result = self.exa.search(
-                query=search_query,
-                num_results=self.config["search_params"]["num_results"],
-                use_autoprompt=self.config["search_params"]["use_autoprompt"],
-                include_domains=["yelp.com", "google.com", "opentable.com", "zomato.com", "tripadvisor.com"]
-            )
-            
-            # Process and format results
-            restaurants = []
-            for item in result.results:
-                restaurant = {
-                    "name": item.title,
-                    "url": item.url,
-                    "description": item.text,
-                    "published_date": item.published_date,
-                    "score": item.score
-                }
-                restaurants.append(restaurant)
-            
-            return restaurants
-            
-        except Exception as e:
-            print(f"Error searching restaurants: {e}")
-            return []
-    
-    async def filter_restaurants(self, restaurants: List[Dict[str, Any]], criteria: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Filter restaurants based on user criteria"""
-        filtered_restaurants = []
-        
-        for restaurant in restaurants:
-            if self._matches_criteria(restaurant, criteria):
-                filtered_restaurants.append(restaurant)
-        
-        return filtered_restaurants
-    
-    def _matches_criteria(self, restaurant: Dict[str, Any], criteria: Dict[str, Any]) -> bool:
-        """Check if restaurant matches given criteria"""
-        # Basic implementation - can be extended with more sophisticated matching
-        description = restaurant.get("description", "").lower()
-        
-        # Check cuisine type
-        if "cuisine" in criteria:
-            cuisine = criteria["cuisine"].lower()
-            if cuisine not in description:
-                return False
-        
-        # Check dietary restrictions
-        if "dietary_restrictions" in criteria:
-            restrictions = criteria["dietary_restrictions"]
-            for restriction in restrictions:
-                if restriction.lower() in description:
-                    return True
-        
-        # Check price range (basic text analysis)
-        if "price_range" in criteria:
-            price_indicators = ["$", "$$", "$$$", "$$$$", "expensive", "cheap", "affordable"]
-            # This is a simplified implementation
-            return True
-        
-        return True
-    
-    async def select_best_restaurants(self, restaurants: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, Any]]:
-        """Select the best restaurants from the list"""
-        # Sort by score (relevance) and return top restaurants
-        sorted_restaurants = sorted(restaurants, key=lambda x: x.get("score", 0), reverse=True)
-        return sorted_restaurants[:limit]
-    
-    async def get_restaurant_details(self, restaurants: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Get additional details for selected restaurants"""
-        detailed_restaurants = []
-        
-        for restaurant in restaurants:
-            try:
-                # Use Exa to get more content about the restaurant
-                content_result = self.exa.get_contents([restaurant["url"]])
-                
-                if content_result.results:
-                    restaurant_detail = restaurant.copy()
-                    restaurant_detail["full_content"] = content_result.results[0].text
-                    detailed_restaurants.append(restaurant_detail)
-                else:
-                    detailed_restaurants.append(restaurant)
-                    
-            except Exception as e:
-                print(f"Error getting details for {restaurant['name']}: {e}")
-                detailed_restaurants.append(restaurant)
-        
-        return detailed_restaurants
-    
-    async def run(self, user_query: str, location: str = None, cuisine: str = None, criteria: Dict[str, Any] = None) -> List[Dict[str, Any]]:
-        """Main execution method for the restaurant selector agent"""
-        print(f"🍽️  Restaurant Selector Agent starting...")
-        print(f"Query: {user_query}")
-        
-        # Search for restaurants
-        restaurants = await self.search_restaurants(user_query, location, cuisine)
-        print(f"Found {len(restaurants)} restaurants")
-        
-        # Filter restaurants if criteria provided
-        if criteria:
-            restaurants = await self.filter_restaurants(restaurants, criteria)
-            print(f"Filtered to {len(restaurants)} restaurants")
-        
-        # Select best restaurants
-        best_restaurants = await self.select_best_restaurants(restaurants)
-        print(f"Selected {len(best_restaurants)} best restaurants")
-        
-        # Get detailed information
-        detailed_restaurants = await self.get_restaurant_details(best_restaurants)
-        print(f"Retrieved details for {len(detailed_restaurants)} restaurants")
-        
-        return detailed_restaurants
+    async def _setup() -> Runner:
+        await _session_service.create_session(
+            app_name=app_name,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return Runner(agent=agent, app_name=app_name, session_service=_session_service)
 
+    return asyncio.get_event_loop().run_until_complete(_setup())
 
-async def main():
-    """Example usage of the Restaurant Selector Agent"""
-    agent = RestaurantSelectorAgent()
-    
-    # Example query
-    user_query = "highly rated Italian restaurants"
-    location = "New York City"
-    cuisine = "Italian"
-    criteria = {
-        "dietary_restrictions": ["vegetarian"],
-        "price_range": {"min": 2, "max": 4}
-    }
-    
-    results = await agent.run(user_query, location, cuisine, criteria)
-    
-    print("\n🎯 Selected Restaurants:")
-    for i, restaurant in enumerate(results, 1):
-        print(f"{i}. {restaurant['name']}")
-        print(f"   URL: {restaurant['url']}")
-        print(f"   Score: {restaurant['score']}")
-        print(f"   Description: {restaurant['description'][:100]}...")
-        print()
+def suggest_restaurant(prefs: dict) -> str:
+    """
+    Call the agent once through ADK and return the plain-text recommendation.
+    """
+    runner = _get_sync_runner(
+        agent=agent,
+        app_name="restaurant_selector_app",
+        user_id="demo_user",
+        session_id="demo_session",
+    )
 
+    msg = types.Content(role="user", parts=[types.Part(text=json.dumps(prefs))])
 
+    for event in runner.run(
+        user_id="demo_user",
+        session_id="demo_session",
+        new_message=msg,
+    ):
+        if event.is_final_response():
+            return event.content.parts[0].text
+
+    raise RuntimeError("Agent did not emit a final response")
+
+# ── 4.  DEMO ─────────────────────────────────────────────────────
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    prefs_example = {
+        "location": "North Beach, San Francisco",
+        "cuisines": ["japanese"],
+        "diet": ["pescatarian"],
+        "time_window": ["2025-07-15T18:00", "2025-07-15T21:00"],
+        "budget": "high",
+    }
+    print(suggest_restaurant(prefs_example))
