@@ -276,7 +276,7 @@
         </div>
 
         <div class="tabs">
-            <div class="tab active" onclick="switchTab('chat')">💬 Chat</div>
+            <div class="tab active" onclick="switchTab('chat')">Chat</div>
                             <div class="tab" onclick="switchTab('network')">Network</div>
         </div>
 
@@ -405,6 +405,42 @@
                             music_genres: ['rock', 'folk', 'world'],
                             budget: 'medium'
                         }
+                    },
+                    {
+                        id: 'alice-id',
+                        name: 'Alice',
+                        status: 'online',
+                        preferences: {
+                            dietary_restrictions: ['none'],
+                            cuisines: ['French', 'Korean', 'Modern American'],
+                            music_genres: ['classical', 'ambient', 'experimental'],
+                            budget: 'high',
+                            profession: 'Tech Professional'
+                        }
+                    },
+                    {
+                        id: 'charlie-id',
+                        name: 'Charlie',
+                        status: 'online',
+                        preferences: {
+                            dietary_restrictions: ['vegan'],
+                            cuisines: ['Ethiopian', 'Vietnamese', 'Peruvian'],
+                            music_genres: ['afrobeat', 'reggae', 'hip-hop'],
+                            budget: 'low',
+                            profession: 'Creative Artist'
+                        }
+                    },
+                    {
+                        id: 'diana-id',
+                        name: 'Diana',
+                        status: 'online',
+                        preferences: {
+                            dietary_restrictions: ['gluten-free', 'dairy-free'],
+                            cuisines: ['Mediterranean', 'Healthy', 'Salads'],
+                            music_genres: ['pop', 'dance', 'latin'],
+                            budget: 'medium',
+                            profession: 'Fitness Enthusiast'
+                        }
                     }
                 ];
 
@@ -417,6 +453,9 @@
                         <div class="user-info">
                             <strong>Status:</strong> <span>${user.status}</span>
                         </div>
+                        ${user.preferences.profession ? `<div class="user-info">
+                            <strong>Role:</strong> <span>${user.preferences.profession}</span>
+                        </div>` : ''}
                         <div class="user-info">
                             <strong>Dietary:</strong> <span>${user.preferences.dietary_restrictions.join(', ')}</span>
                         </div>
@@ -445,7 +484,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            addMessage('👋 Hi! I\'m your collaborative AI assistant. Try asking me to plan something with Bob!', false);
+            addMessage('👋 Hi! I\'m your collaborative AI assistant. Try asking me to plan something with Bob, Alice, Charlie, or Diana!', false);
         });
     </script>
 </body>

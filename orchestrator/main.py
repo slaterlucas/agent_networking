@@ -104,8 +104,9 @@ class CreateAgentRequest(BaseModel):
 async def startup():
     await database.connect()
 
-    # When running in demo mode, ensure a demo user exists
+    # When running in demo mode, ensure demo users exist
     if DEMO_MODE:
+        # Demo User (existing)
         demo_user = await database.fetch_one(users.select().where(users.c.email == "demo@example.com"))
         if not demo_user:
             demo_id = str(uuid.uuid4())
@@ -115,7 +116,194 @@ async def startup():
                 email="demo@example.com",
                 name="Demo User",
                 refresh_token=None,
-                preferences={},
+                preferences={
+                    "food": {
+                        "cuisines": ["japanese", "thai", "american"],
+                        "dietary_restrictions": ["pescatarian"],
+                        "budget_level": "medium",
+                        "atmosphere_preferences": ["cozy", "quiet"]
+                    },
+                    "music": {
+                        "genres": ["indie", "electronic", "jazz"],
+                        "artists": ["Thom Yorke", "Bonobo", "Nils Frahm"],
+                        "discovery_openness": 8
+                    },
+                    "social": {
+                        "group_size_preference": "small",
+                        "communication_style": "casual",
+                        "social_energy": "moderate"
+                    },
+                    "location": {
+                        "home_location": "San Francisco",
+                        "preferred_areas": ["Mission", "Castro", "Hayes Valley"]
+                    },
+                    "_system_prompt": "You are Demo User's personal assistant. Demo User enjoys pescatarian Japanese, Thai, and American cuisine with a medium budget, preferring cozy and quiet atmospheres. They love indie, electronic, and jazz music and are quite open to discovering new artists. They prefer small group social settings with casual communication.",
+                    "_user_id": demo_id
+                },
+            ))
+
+        # Bob (existing)
+        bob_user = await database.fetch_one(users.select().where(users.c.email == "bob@example.com"))
+        if not bob_user:
+            bob_id = "bob-test-id"
+            await database.execute(users.insert().values(
+                id=bob_id,
+                google_sub="bob_sub",
+                email="bob@example.com",
+                name="Bob",
+                refresh_token=None,
+                preferences={
+                    "food": {
+                        "cuisines": ["italian", "mexican", "mediterranean"],
+                        "dietary_restrictions": ["vegetarian"],
+                        "budget_level": "medium",
+                        "atmosphere_preferences": ["casual", "outdoor"]
+                    },
+                    "music": {
+                        "genres": ["rock", "folk", "world"],
+                        "artists": ["Pearl Jam", "Bon Iver", "Tinariwen"],
+                        "discovery_openness": 6
+                    },
+                    "social": {
+                        "group_size_preference": "medium",
+                        "communication_style": "friendly",
+                        "social_energy": "high"
+                    },
+                    "location": {
+                        "home_location": "San Francisco",
+                        "preferred_areas": ["North Beach", "Marina", "Sunset"]
+                    },
+                    "_system_prompt": "You are Bob's personal assistant. Bob loves vegetarian Italian, Mexican, and Mediterranean food and prefers casual, outdoor dining. He enjoys rock, folk, and world music and is moderately open to new discoveries. He's energetic and friendly in social settings.",
+                    "_user_id": bob_id
+                },
+            ))
+
+        # Alice - Tech professional with sophisticated tastes
+        alice_user = await database.fetch_one(users.select().where(users.c.email == "alice@example.com"))
+        if not alice_user:
+            alice_id = str(uuid.uuid4())
+            await database.execute(users.insert().values(
+                id=alice_id,
+                google_sub="alice_sub",
+                email="alice@example.com",
+                name="Alice",
+                refresh_token=None,
+                preferences={
+                    "food": {
+                        "cuisines": ["french", "korean", "modern_american"],
+                        "dietary_restrictions": [],
+                        "budget_level": "high",
+                        "atmosphere_preferences": ["upscale", "innovative", "romantic"]
+                    },
+                    "music": {
+                        "genres": ["classical", "ambient", "experimental"],
+                        "artists": ["Max Richter", "Ólafur Arnalds", "Kiasmos"],
+                        "discovery_openness": 9
+                    },
+                    "social": {
+                        "group_size_preference": "small",
+                        "communication_style": "professional",
+                        "social_energy": "moderate"
+                    },
+                    "location": {
+                        "home_location": "San Francisco",
+                        "preferred_areas": ["SOMA", "Financial District", "Nob Hill"]
+                    },
+                    "professional": {
+                        "industry": "technology",
+                        "career_stage": "senior",
+                        "interests": ["AI", "product design", "startups"]
+                    },
+                    "_system_prompt": "You are Alice's personal assistant. Alice has sophisticated tastes, enjoying French, Korean, and modern American cuisine with a high budget for upscale, innovative dining. She loves classical, ambient, and experimental music and is very open to new discoveries. She's a senior tech professional who prefers small group settings with professional communication.",
+                    "_user_id": alice_id
+                },
+            ))
+
+        # Charlie - Creative artist with eclectic preferences
+        charlie_user = await database.fetch_one(users.select().where(users.c.email == "charlie@example.com"))
+        if not charlie_user:
+            charlie_id = str(uuid.uuid4())
+            await database.execute(users.insert().values(
+                id=charlie_id,
+                google_sub="charlie_sub",
+                email="charlie@example.com",
+                name="Charlie",
+                refresh_token=None,
+                preferences={
+                    "food": {
+                        "cuisines": ["ethiopian", "vietnamese", "peruvian"],
+                        "dietary_restrictions": ["vegan"],
+                        "budget_level": "low",
+                        "atmosphere_preferences": ["authentic", "hole-in-the-wall", "cultural"]
+                    },
+                    "music": {
+                        "genres": ["afrobeat", "reggae", "hip-hop"],
+                        "artists": ["Fela Kuti", "Burna Boy", "Kendrick Lamar"],
+                        "discovery_openness": 10
+                    },
+                    "social": {
+                        "group_size_preference": "large",
+                        "communication_style": "casual",
+                        "social_energy": "very_high"
+                    },
+                    "location": {
+                        "home_location": "San Francisco",
+                        "preferred_areas": ["Mission", "Haight", "Chinatown"]
+                    },
+                    "professional": {
+                        "industry": "arts",
+                        "career_stage": "early_career",
+                        "interests": ["street art", "community organizing", "music production"]
+                    },
+                    "_system_prompt": "You are Charlie's personal assistant. Charlie loves authentic Ethiopian, Vietnamese, and Peruvian vegan cuisine on a budget, preferring hole-in-the-wall spots with cultural atmosphere. They're passionate about Afrobeat, reggae, and hip-hop music and are extremely open to new discoveries. Charlie is a creative artist who thrives in large group settings with high energy and casual communication.",
+                    "_user_id": charlie_id
+                },
+            ))
+
+        # Diana - Health-conscious fitness enthusiast
+        diana_user = await database.fetch_one(users.select().where(users.c.email == "diana@example.com"))
+        if not diana_user:
+            diana_id = str(uuid.uuid4())
+            await database.execute(users.insert().values(
+                id=diana_id,
+                google_sub="diana_sub",
+                email="diana@example.com",
+                name="Diana",
+                refresh_token=None,
+                preferences={
+                    "food": {
+                        "cuisines": ["mediterranean", "healthy", "salads"],
+                        "dietary_restrictions": ["gluten_free", "dairy_free"],
+                        "budget_level": "medium",
+                        "atmosphere_preferences": ["bright", "health-conscious", "outdoor"]
+                    },
+                    "music": {
+                        "genres": ["pop", "dance", "latin"],
+                        "artists": ["Dua Lipa", "Bad Bunny", "Rosalía"],
+                        "discovery_openness": 7
+                    },
+                    "social": {
+                        "group_size_preference": "medium",
+                        "communication_style": "energetic",
+                        "social_energy": "high"
+                    },
+                    "location": {
+                        "home_location": "San Francisco",
+                        "preferred_areas": ["Marina", "Presidio", "Embarcadero"]
+                    },
+                    "professional": {
+                        "industry": "fitness",
+                        "career_stage": "mid_career",
+                        "interests": ["nutrition", "wellness", "outdoor activities"]
+                    },
+                    "sports": {
+                        "sports_to_play": ["running", "yoga", "cycling"],
+                        "activity_level": "high",
+                        "outdoor_vs_indoor": "outdoor"
+                    },
+                    "_system_prompt": "You are Diana's personal assistant. Diana is health-conscious, preferring Mediterranean and healthy cuisine that's gluten-free and dairy-free, with bright, outdoor dining atmospheres. She enjoys pop, dance, and Latin music and is fairly open to new discoveries. Diana is a fitness enthusiast who loves outdoor activities and prefers energetic, medium-sized social groups.",
+                    "_user_id": diana_id
+                },
             ))
 
 @app.on_event("shutdown")
