@@ -21,9 +21,130 @@ import argparse
 import os
 import textwrap
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from python_a2a import A2AServer, AgentCard, AgentSkill
-import json, os, textwrap, argparse  # ensure json imported earlier
-from google import genai  # NEW import for Gemini LLM
+import json, os, textwrap, argparse, asyncio  # ensure json imported earlier
+from google.adk.agents import Agent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google import genai
+from google.genai import types
+import requests
+import re
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+import weave
+weave.init("weavehack")
+
+
+# Configure genai client for Vertex AI
+try:
+    project = os.getenv("GOOGLE_CLOUD_PROJECT")
+    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+    if project:
+        genai_client = genai.Client(
+            vertexai=True, 
+            project=project, 
+            location=location
+        )
+        print(f"[INFO] Configured genai client for project: {project}, location: {location}")
+    else:
+        genai_client = None
+        print("[WARNING] GOOGLE_CLOUD_PROJECT not set - genai client not configured")
+except Exception as e:
+    genai_client = None
+    print(f"[ERROR] Failed to configure genai client: {e}")
+
+# Global ADK session service
+adk_session_service = InMemorySessionService()
+
+@weave.op()
+def create_adk_agent(name: str, preferences: dict, system_prompt: str):
+    """Create an ADK agent instance for chat."""
+    chat_system_prompt = f"""You are {name}'s personal AI assistant. You have access to their preferences and can help with various tasks.
+
+{system_prompt}
+
+## Special Instructions:
+- For restaurant/dining requests, you should recognize them and route to the restaurant selector
+- Restaurant requests include: finding restaurants, dinner plans, lunch suggestions, food recommendations, etc.
+- Look for keywords like: restaurant, dinner, lunch, food, eat, cuisine, reservation, etc.
+- When you detect a restaurant request, respond with: "RESTAURANT_REQUEST: [extracted details]"
+- For all other queries, provide helpful, personalized responses based on the user's preferences
+- Be conversational and friendly
+- Remember the user's preferences when giving advice
+
+## Your User's Preferences:
+{json.dumps(preferences, indent=2) if preferences else "No preferences set yet"}
+    """
+    
+    try:
+        # Configure for Vertex AI
+        project = os.getenv("GOOGLE_CLOUD_PROJECT")
+        location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+        
+        if not project:
+            print("[ERROR] GOOGLE_CLOUD_PROJECT not set - ADK agent creation failed")
+            return None
+            
+        print(f"[INFO] Creating ADK agent with project: {project}, location: {location}")
+        
+        agent = Agent(
+            name=f"{name.lower().replace(' ', '_').replace('-', '_')}_chat_agent",
+            model="gemini-2.0-flash-exp",
+            description=f"Personal AI assistant for {name}",
+            instruction=chat_system_prompt,
+            tools=[]
+        )
+        print(f"[INFO] Created ADK agent: {agent.name}")
+        return agent
+    except Exception as e:
+        print(f"[ERROR] Failed to create ADK agent: {e}")
+        return None
+
+async def get_adk_runner(agent_instance, app_name: str, user_id: str, session_id: str):
+    """Get or create an ADK runner for the session."""
+    try:
+        # Try to get existing session first
+        existing_session = await adk_session_service.get_session(
+            app_name=app_name, 
+            user_id=user_id, 
+            session_id=session_id
+        )
+        
+        if existing_session is None:
+            # Create new session
+            await adk_session_service.create_session(
+                app_name=app_name,
+                user_id=user_id,
+                session_id=session_id
+            )
+        
+        return Runner(agent=agent_instance, app_name=app_name, session_service=adk_session_service)
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to create ADK runner: {e}")
+        return None
+
+async def call_adk_agent(query: str, runner: Runner, user_id: str, session_id: str):
+    """Call the ADK agent and get response."""
+    try:
+        content = types.Content(role='user', parts=[types.Part(text=query)])
+        final_text = ""
+        
+        async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
+            if event.is_final_response():
+                final_text = event.content.parts[0].text if event.content else ""
+                break
+                
+        return final_text
+        
+    except Exception as e:
+        print(f"[ERROR] ADK agent call failed: {e}")
+        return None
 
 
 def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
@@ -37,12 +158,35 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
     # Load preferences from environment
     preferences_json = os.getenv("PREFERENCES_JSON", "{}")
     system_prompt = ""
+    preferences = {}
     
     try:
         preferences = json.loads(preferences_json)
         system_prompt = preferences.get("_system_prompt", "")
     except json.JSONDecodeError:
         system_prompt = ""
+        preferences = {}
+
+    # Create ADK agent for enhanced chat
+    adk_agent = create_adk_agent(name, preferences, system_prompt)
+    
+    # Create enhanced system prompt for chat agent (fallback)
+    chat_system_prompt = f"""You are {name}'s personal AI assistant. You have access to their preferences and can help with various tasks.
+
+{system_prompt}
+
+## Special Instructions:
+- For restaurant/dining requests, you should recognize them and route to the restaurant selector
+- Restaurant requests include: finding restaurants, dinner plans, lunch suggestions, food recommendations, etc.
+- Look for keywords like: restaurant, dinner, lunch, food, eat, cuisine, reservation, etc.
+- When you detect a restaurant request, respond with: "RESTAURANT_REQUEST: [extracted details]"
+- For all other queries, provide helpful, personalized responses based on the user's preferences
+- Be conversational and friendly
+- Remember the user's preferences when giving advice
+
+## Your User's Preferences:
+{json.dumps(preferences, indent=2) if preferences else "No preferences set yet"}
+    """
 
     echo_skill = AgentSkill(
         id="echo",
@@ -70,6 +214,15 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 
     app = FastAPI()
 
+    # Add CORS middleware to allow frontend connections
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
+
     # Very small business-logic function: just echo the input object.
     from python_a2a.discovery import enable_discovery  # local import to avoid startup cost if unused
 
@@ -92,6 +245,14 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 
     # Attach the extra skill to the card
     card.skills.append(selector_skill)
+
+    # Create a simple Gemini client for chat (fallback from ADK for now)
+    try:
+        chat_client = genai.Client()
+        chat_model = "gemini-2.5-flash"
+    except Exception:
+        chat_client = None
+        chat_model = None
 
     # ------------------------------------------------------------------
     # Minimal HTTP routes so `/tasks/send` works out-of-the-box with
@@ -135,11 +296,8 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 
     import requests
 
-    # Initialise Gemini model once
-    try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
-    except Exception:
-        model = None  # Fallback if credentials not set
+    # Simple conversation history (in-memory for demo)
+    conversation_history = {}
 
     @app.post("/invoke")
     async def invoke(body: dict):  # noqa: ANN001
@@ -191,19 +349,227 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 
         # Fallback to chat LLM
         user_input = body.get("input", "")
+        user_id = body.get("user_id", "demo_user")
+        session_id = body.get("session_id", "demo_session")
 
-        async def _call_llm() -> dict:
-            if model is None:
-                return {"reply": "LLM not configured."}
-            message_list = []
-            if system_prompt:
-                message_list.append({"role": "system", "parts": [system_prompt]})
-            message_list.append({"role": "user", "parts": [user_input]})
-            resp = model.generate_content(message_list)
-            return {"reply": resp.text}
+        def _call_llm() -> dict:
+            try:
+                if chat_client is None:
+                    return {"reply": "Chat functionality is not available right now."}
+                
+                # Get conversation history for this session
+                if session_id not in conversation_history:
+                    conversation_history[session_id] = []
+                
+                # Build conversation context
+                messages = []
+                
+                # Add system prompt
+                if chat_system_prompt:
+                    messages.append({"role": "system", "parts": [{"text": chat_system_prompt}]})
+                
+                # Add conversation history
+                for msg in conversation_history[session_id][-10:]:  # Keep last 10 messages
+                    messages.append(msg)
+                
+                # Add current user message
+                messages.append({"role": "user", "parts": [{"text": user_input}]})
+                
+                # Call Gemini
+                response = chat_client.models.generate_content(
+                    model=chat_model,
+                    contents=messages
+                )
+                
+                response_text = response.text
+                
+                # Update conversation history
+                conversation_history[session_id].append({"role": "user", "parts": [{"text": user_input}]})
+                conversation_history[session_id].append({"role": "model", "parts": [{"text": response_text}]})
+                
+                # Check if this is a restaurant request
+                if "RESTAURANT_REQUEST:" in response_text:
+                    # Extract the details and route to restaurant selector
+                    restaurant_details = response_text.split("RESTAURANT_REQUEST:", 1)[1].strip()
+                    
+                    # Create restaurant request with user preferences
+                    restaurant_input = {
+                        "text_query": restaurant_details,
+                        "location": "San Francisco",  # Default, could be extracted from query
+                    }
+                    
+                    # Merge user preferences
+                    if preferences:
+                        food_prefs = preferences.get("food", {})
+                        if food_prefs.get("dietary_restrictions"):
+                            restaurant_input["dietary_restrictions"] = food_prefs["dietary_restrictions"]
+                        if food_prefs.get("budget_level"):
+                            restaurant_input["budget_level"] = food_prefs["budget_level"]
+                        if food_prefs.get("cuisines"):
+                            restaurant_input["cuisines"] = food_prefs["cuisines"]
+                        if food_prefs.get("atmosphere_preferences"):
+                            restaurant_input["atmosphere_preferences"] = food_prefs["atmosphere_preferences"]
+                    
+                    # Call restaurant selector
+                    try:
+                        resp = requests.post(
+                            "http://localhost:8080/invoke",
+                            headers={"Content-Type": "application/json"},
+                            json=restaurant_input,
+                            timeout=180,
+                        )
+                        if resp.status_code == 200:
+                            restaurant_result = resp.json()
+                            if "recommendation" in restaurant_result:
+                                final_response = f"I found a great restaurant recommendation for you!\n\n{restaurant_result['recommendation']}"
+                                # Update conversation history with the final response
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                                return {"reply": final_response}
+                            else:
+                                final_response = f"Here's what I found:\n\n{restaurant_result}"
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                                return {"reply": final_response}
+                        else:
+                            fallback_response = f"I tried to find a restaurant for you, but the restaurant service had an issue. Let me help you in another way: {response_text.replace('RESTAURANT_REQUEST:', '').strip()}"
+                            conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                            return {"reply": fallback_response}
+                    except Exception as e:
+                        fallback_response = f"I'd love to help you find a restaurant, but I'm having trouble connecting to the restaurant service right now. Can you try again in a moment?"
+                        conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                        return {"reply": fallback_response}
+                
+                return {"reply": response_text}
+                
+            except Exception as e:
+                return {"reply": f"I'm having trouble processing your request right now. Error: {str(e)}"}
 
         llm_reply = await anyio.to_thread.run_sync(_call_llm)
         return llm_reply
+
+    @app.post("/chat")
+    async def chat_endpoint(body: dict):
+        """Dedicated chat endpoint for frontend integration with ADK support."""
+        user_input = body.get("message", "")
+        user_id = body.get("user_id", "demo_user")
+        session_id = body.get("session_id", "demo_session")
+        
+        if not user_input:
+            return {"reply": "Please provide a message."}
+        
+        try:
+            response_text = None
+            
+            # Try ADK first
+            if adk_agent is not None:
+                try:
+                    app_name = f"personal_agent_{name.lower().replace(' ', '_')}"
+                    runner = await get_adk_runner(adk_agent, app_name, user_id, session_id)
+                    
+                    if runner is not None:
+                        response_text = await call_adk_agent(user_input, runner, user_id, session_id)
+                        print(f"[INFO] ADK response: {response_text[:100]}..." if response_text else "[INFO] ADK response: None")
+                        
+                except Exception as e:
+                    print(f"[WARNING] ADK failed, falling back to Gemini client: {e}")
+                    response_text = None
+            
+            # Fallback to original Gemini client if ADK fails
+            if response_text is None:
+                if chat_client is None:
+                    return {"reply": "Chat functionality is not available right now."}
+                
+                # Get conversation history for this session
+                if session_id not in conversation_history:
+                    conversation_history[session_id] = []
+                
+                # Build conversation context
+                messages = []
+                
+                # Add system prompt
+                if chat_system_prompt:
+                    messages.append({"role": "system", "parts": [{"text": chat_system_prompt}]})
+                
+                # Add conversation history
+                for msg in conversation_history[session_id][-10:]:  # Keep last 10 messages
+                    messages.append(msg)
+                
+                # Add current user message
+                messages.append({"role": "user", "parts": [{"text": user_input}]})
+                
+                # Call Gemini
+                response = chat_client.models.generate_content(
+                    model=chat_model,
+                    contents=messages
+                )
+                
+                response_text = response.text
+                
+                # Update conversation history
+                conversation_history[session_id].append({"role": "user", "parts": [{"text": user_input}]})
+                conversation_history[session_id].append({"role": "model", "parts": [{"text": response_text}]})
+            
+            # Check if this is a restaurant request
+            if response_text and "RESTAURANT_REQUEST:" in response_text:
+                # Extract the details and route to restaurant selector
+                restaurant_details = response_text.split("RESTAURANT_REQUEST:", 1)[1].strip()
+                
+                # Create restaurant request with user preferences
+                restaurant_input = {
+                    "text_query": restaurant_details,
+                    "location": "San Francisco",  # Default, could be extracted from query
+                }
+                
+                # Merge user preferences
+                if preferences:
+                    food_prefs = preferences.get("food", {})
+                    if food_prefs.get("dietary_restrictions"):
+                        restaurant_input["dietary_restrictions"] = food_prefs["dietary_restrictions"]
+                    if food_prefs.get("budget_level"):
+                        restaurant_input["budget_level"] = food_prefs["budget_level"]
+                    if food_prefs.get("cuisines"):
+                        restaurant_input["cuisines"] = food_prefs["cuisines"]
+                    if food_prefs.get("atmosphere_preferences"):
+                        restaurant_input["atmosphere_preferences"] = food_prefs["atmosphere_preferences"]
+                
+                # Call restaurant selector
+                try:
+                    resp = requests.post(
+                        "http://localhost:8080/invoke",
+                        headers={"Content-Type": "application/json"},
+                        json=restaurant_input,
+                        timeout=180,
+                    )
+                    if resp.status_code == 200:
+                        restaurant_result = resp.json()
+                        if "recommendation" in restaurant_result:
+                            final_response = f"I found a great restaurant recommendation for you!\n\n{restaurant_result['recommendation']}"
+                            # Update conversation history with the final response (only if using fallback client)
+                            if session_id in conversation_history and conversation_history[session_id]:
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                            return {"reply": final_response}
+                        else:
+                            final_response = f"Here's what I found:\n\n{restaurant_result}"
+                            # Update conversation history with the final response (only if using fallback client)
+                            if session_id in conversation_history and conversation_history[session_id]:
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                            return {"reply": final_response}
+                    else:
+                        fallback_response = f"I tried to find a restaurant for you, but the restaurant service had an issue. Let me help you in another way: {response_text.replace('RESTAURANT_REQUEST:', '').strip()}"
+                        # Update conversation history with the final response (only if using fallback client)
+                        if session_id in conversation_history and conversation_history[session_id]:
+                            conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                        return {"reply": fallback_response}
+                except Exception as e:
+                    fallback_response = f"I'd love to help you find a restaurant, but I'm having trouble connecting to the restaurant service right now. Can you try again in a moment?"
+                    # Update conversation history with the final response (only if using fallback client)
+                    if session_id in conversation_history and conversation_history[session_id]:
+                        conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                    return {"reply": fallback_response}
+            
+            return {"reply": response_text}
+            
+        except Exception as e:
+            return {"reply": f"I'm having trouble processing your request right now. Error: {str(e)}"}
 
     # Automatically register this agent with the discovery registry (if available).
     # Falls back to http://localhost:9000 which is the demo default.

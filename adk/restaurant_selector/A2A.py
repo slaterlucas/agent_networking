@@ -17,6 +17,10 @@ import os
 import json
 from python_a2a.models import Message  # type: ignore
 
+# region: WEAVE
+import weave
+weave.init("weavehack")
+# endregion: WEAVE
 
 skill = AgentSkill(
     id="restaurant-selector",
@@ -33,11 +37,21 @@ from pydantic import BaseModel, Field
 
 
 class Inputs(BaseModel):
-    location: str
-    cuisines: list[str]
+    # Support both structured and text-based queries
+    text_query: str | None = Field(None, description="Natural language restaurant query")
+    
+    # Optional structured fields
+    location: str | None = None
+    cuisines: list[str] = []
     diet: list[str] = []
-    time_window: list[str]           # ["2025-07-15T18:00", "2025-07-15T21:00"]
+    time_window: list[str] = []           # ["2025-07-15T18:00", "2025-07-15T21:00"]
     budget: str | None = None
+    
+    # Additional optional fields for flexibility
+    meal_type: str | None = None
+    atmosphere_preferences: list[str] = []
+    dietary_restrictions: list[str] = []
+    budget_level: str | None = None
 
 
 class Outputs(BaseModel):
@@ -119,10 +133,74 @@ def _impl(body) -> Outputs:  # noqa: ANN001
     if data is None:
         raise ValueError("Could not parse inputs from request body")
 
-    prefs = Inputs.model_validate(data)
+    # Handle text-based queries by converting to structured format
+    if isinstance(data, str):
+        # If data is just a string, treat it as a text query
+        data = {"text_query": data}
+    elif "input" in data and isinstance(data["input"], str):
+        # Handle personal agent format
+        data = {"text_query": data["input"]}
+    elif "input" in data and isinstance(data["input"], dict):
+        # Handle personal agent format with structured data
+        data = data["input"]
+
+    # Parse into Inputs model with error handling
+    try:
+        prefs = Inputs.model_validate(data)
+    except Exception as e:
+        # If parsing fails, try to extract as text query
+        if isinstance(data, dict) and any(key in data for key in ["text", "query", "message"]):
+            text_content = data.get("text") or data.get("query") or data.get("message")
+            prefs = Inputs(text_query=str(text_content))
+        else:
+            raise ValueError(f"Could not parse inputs: {e}")
+
+    # Convert to format expected by suggest_restaurant
+    restaurant_data = prefs.model_dump()
+    
+    # If we have a text query, parse it into structured fields
+    if prefs.text_query and not prefs.location:
+        # Simple text parsing - in a real app you'd use an LLM for this
+        query_lower = prefs.text_query.lower()
+        
+        # Extract location if not provided
+        if "san francisco" in query_lower or "sf" in query_lower:
+            restaurant_data["location"] = "San Francisco"
+        elif "new york" in query_lower or "nyc" in query_lower:
+            restaurant_data["location"] = "New York"
+        else:
+            restaurant_data["location"] = "San Francisco"  # Default
+            
+        # Extract cuisines if not provided
+        if not prefs.cuisines:
+            if "italian" in query_lower:
+                restaurant_data["cuisines"] = ["Italian"]
+            elif "chinese" in query_lower:
+                restaurant_data["cuisines"] = ["Chinese"]
+            elif "mexican" in query_lower:
+                restaurant_data["cuisines"] = ["Mexican"]
+            else:
+                restaurant_data["cuisines"] = ["Any"]
+                
+        # Extract time window if not provided
+        if not prefs.time_window:
+            if "lunch" in query_lower:
+                restaurant_data["time_window"] = ["12:00", "14:00"]
+            elif "dinner" in query_lower:
+                restaurant_data["time_window"] = ["18:00", "21:00"]
+            else:
+                restaurant_data["time_window"] = ["18:00", "21:00"]  # Default to dinner
+
+    # Ensure required fields have defaults
+    if not restaurant_data.get("location"):
+        restaurant_data["location"] = "San Francisco"
+    if not restaurant_data.get("cuisines"):
+        restaurant_data["cuisines"] = ["Any"]
+    if not restaurant_data.get("time_window"):
+        restaurant_data["time_window"] = ["18:00", "21:00"]
 
     # 2. Run the business-logic agent.
-    recommendation = suggest_restaurant(prefs.model_dump())
+    recommendation = suggest_restaurant(restaurant_data)
 
     # 3. Wrap in Outputs so the caller gets JSON back.
     return Outputs(recommendation=recommendation)
@@ -151,7 +229,7 @@ server.agent_card = CARD  # type: ignore[attr-defined]
 from fastapi import HTTPException
 import anyio
 
-
+@weave.op()
 @app.post("/tasks/send")
 async def tasks_send(body: dict):
     """A2A-compatible endpoint (subset).

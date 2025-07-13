@@ -27,6 +27,7 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json   # service-account w/ ge
 uv run python main.py
 """
 
+
 from __future__ import annotations
 import json, os, typing as t
 from dotenv import load_dotenv
@@ -36,6 +37,9 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 import asyncio
 from google import genai
+
+
+
 # ── 0.  ENV & BOOTSTRAP  ──────────────────────────────────────────────────────
 load_dotenv()
 
@@ -125,6 +129,7 @@ def suggest_restaurant(prefs: dict) -> str:
             return event.content.parts[0].text
 
     raise RuntimeError("Agent did not emit a final response")
+
 
 # ── 4.  DEMO ─────────────────────────────────────────────────────
 if __name__ == "__main__":
