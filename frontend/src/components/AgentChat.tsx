@@ -57,39 +57,17 @@ function AgentChat() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || sending) return;
 
-    // Optimistically add the user's message to the chat
-    const optimisticMessage: Message = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      agent_name: undefined,
-      text: newMessage,
-      timestamp: new Date().toLocaleTimeString(),
-    };
-    setMessages(prev => [...prev, optimisticMessage]);
-
     try {
       setSending(true);
       const response = await apiClient.sendMessage({
         message: newMessage,
         agent_id: 'alice' // Default to Alice's agent
       });
+      
       setNewMessage('');
-      // Optionally, you could show the agent's reply if the backend returns it
-      // But the new endpoint only returns { message: string }
-      // If you want to show the agent's reply, you could add it here:
-      if (response && response.reply) {
-        const agentReply: Message = {
-          id: `agent-${Date.now()}`,
-          sender: 'agent',
-          agent_name: 'Agent',
-          text: response.reply,
-          timestamp: new Date().toLocaleTimeString(),
-        };
-        setMessages(prev => [
-          ...prev,
-          agentReply,
-        ]);
-      }
+      
+      // The response will be handled by WebSocket
+      console.log('Message sent:', response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message');
     } finally {

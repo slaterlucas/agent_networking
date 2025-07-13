@@ -1,7 +1,7 @@
 // API service for communicating with the backend
 
-const API_BASE_URL = 'http://172.20.10.3:12000';
-const WS_URL = 'ws://172.20.10.3:12000/ws';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
 
 // Types
 export interface Agent {
@@ -64,19 +64,16 @@ export interface ChatRequest {
 // API Client
 class ApiClient {
   private baseUrl: string;
-  private chatUrl: string;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
-    this.chatUrl = 'http://172.20.10.3:12000/chat'; // New chat endpoint
   }
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
-    absolute: boolean = false
+    options: RequestInit = {}
   ): Promise<T> {
-    const url = absolute ? endpoint : `${this.baseUrl}${endpoint}`;
+    const url = `${this.baseUrl}${endpoint}`;
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -110,12 +107,11 @@ class ApiClient {
     return this.request<Message[]>(`/api/messages?limit=${limit}`);
   }
 
-  async sendMessage(request: ChatRequest): Promise<{ reply: string }> {
-    // Use the new chat endpoint directly
-    return this.request<{ reply: string }>(this.chatUrl, {
+  async sendMessage(request: ChatRequest): Promise<{ message: string; response: Message }> {
+    return this.request<{ message: string; response: Message }>('/api/chat', {
       method: 'POST',
       body: JSON.stringify(request),
-    }, true);
+    });
   }
 
   // Locations
