@@ -4,47 +4,70 @@
   "description": "ADK agent for searching and selecting events using Exa API",
   "search_params": {
     "num_results": 15,
-    "start_published_date": "2024-01-01T00:00:00Z",
-    "end_published_date": "2024-12-31T23:59:59Z",
-    "use_autoprompt": true
+    "use_autoprompt": true,
+    "include_text": true
   },
   "event_types": [
-    "conference",
-    "workshop",
-    "meetup",
-    "seminar",
-    "festival",
     "concert",
-    "exhibition",
+    "theater",
+    "comedy",
+    "sports",
+    "conference",
+    "festival",
+    "art exhibition",
+    "dance performance",
+    "opera",
+    "musical",
+    "film screening",
+    "lecture",
+    "workshop",
     "networking",
-    "hackathon",
-    "webinar"
+    "food festival"
   ],
-  "default_location": "San Francisco",
-  "location_radius": 50,
+  "default_location": "New York City",
+  "distance_radius": 25,
   "price_range": {
-    "min": 0,
-    "max": 500,
-    "currency": "USD"
+    "min": 1,
+    "max": 4,
+    "scale": "1-4 dollar signs"
   },
   "rating_threshold": 4.0,
+  "interests": [
+    "music",
+    "theater",
+    "comedy",
+    "sports",
+    "technology",
+    "art",
+    "food",
+    "dance",
+    "film",
+    "literature",
+    "science",
+    "business",
+    "networking",
+    "wellness"
+  ],
   "preferred_domains": [
     "eventbrite.com",
-    "meetup.com",
-    "facebook.com",
     "ticketmaster.com",
-    "eventful.com",
-    "allevents.in"
+    "stubhub.com",
+    "facebook.com",
+    "meetup.com",
+    "timeout.com",
+    "songkick.com",
+    "bandsintown.com"
   ],
   "filters": {
-    "exclude_keywords": ["canceled", "postponed", "sold out"],
-    "include_keywords": ["open", "available", "registration"]
+    "exclude_keywords": ["cancelled", "postponed", "sold out", "past event"],
+    "include_keywords": ["upcoming", "tickets available", "highly rated", "recommended"]
   },
   "output_format": {
     "max_events": 10,
     "include_description": true,
     "include_pricing": true,
     "include_location": true,
-    "include_date": true
+    "include_time": true,
+    "include_reviews": true
   }
 } 
