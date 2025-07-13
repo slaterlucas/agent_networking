@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Settings, User, Shield, Bell, Globe, Database } from 'lucide-react';
+import { useState } from 'react';
+import { User, Shield, Bell, Globe, Database } from 'lucide-react';
 
 interface AgentConfig {
   id: string;

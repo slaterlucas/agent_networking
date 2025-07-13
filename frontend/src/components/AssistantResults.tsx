@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 const AssistantResults = () => (
   <div className="h-full w-full flex flex-col items-center justify-center bg-white dark:bg-gray-900 rounded-lg p-8 shadow-sm">

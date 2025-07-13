@@ -248,7 +248,4 @@ export class WebSocketClient {
 export const apiClient = new ApiClient();
 
 // Create WebSocket client instance
-export const wsClient = new WebSocketClient();
-
-// Export types
-export type { Agent, Message, Location, Activity, AgentSettings, Stats, ChatRequest }; 
+export const wsClient = new WebSocketClient(); 

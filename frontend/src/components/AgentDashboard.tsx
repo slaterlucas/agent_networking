@@ -1,24 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Users, 
   MessageSquare, 
   MapPin, 
   Clock, 
   TrendingUp,
-  Activity,
-  Plus,
-  Settings
+  Plus
 } from 'lucide-react';
 import { apiClient, wsClient, type Agent, type Activity as ActivityType, type Stats } from '../services/api';
-
-interface Activity {
-  id: string;
-  type: 'chat' | 'meeting' | 'search' | 'collaboration';
-  title: string;
-  description: string;
-  timestamp: string;
-  agentId: string;
-}
 
 function AgentDashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -63,7 +52,7 @@ function AgentDashboard() {
         );
       });
 
-      wsClient.on('new_message', (data) => {
+      wsClient.on('new_message', () => {
         // Refresh activities when new messages arrive
         loadData();
       });

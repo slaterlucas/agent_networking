@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { MapPin, Users, MessageSquare, Clock } from 'lucide-react';
 
 interface Location {

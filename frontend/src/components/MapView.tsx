@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Fix default marker icon issue in Leaflet (use require to avoid TS errors)
+// Fix default marker icon issue in Leaflet
 const DefaultIcon = L.icon({
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 

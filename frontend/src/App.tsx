@@ -1,22 +1,9 @@
-import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { 
-  Users, 
-  MessageSquare, 
-  Map, 
-  Settings, 
-  Plus,
-  Search,
-  Bell,
-  User,
-  Compass
-} from 'lucide-react';
 import AgentDashboard from './components/AgentDashboard';
 import AgentChat from './components/AgentChat';
 import AgentMap from './components/AgentMap';
 import AgentSettings from './components/AgentSettings';
 import AssistantResults from './components/AssistantResults';
-import { cn } from './lib/utils';
 import tigerImg from './assets/Tiger.png';
 import akinLogo from './assets/akin-logo.png';
 
