@@ -168,6 +168,7 @@ Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
 For development with additional tools:
 
 ```bash
+
 # Install with development dependencies
 uv sync --group dev
 
@@ -181,6 +182,7 @@ uv sync --group docs
 ### Running the Agents
 
 #### Start Personal Agents
+
 ```bash
 python -m adk.personal_agent --user_id user_a --preferences preferences_a.json
 python -m adk.personal_agent --user_id user_b --preferences preferences_b.json
