@@ -47,7 +47,7 @@ class Outputs(BaseModel):
 CARD = AgentCard(
     name="Event Selector",
     description="LLM-driven event picker using Exa + Gemini-2.5",
-    url=os.getenv("SERVICE_URL", "http://localhost:8081/"),
+    url=os.getenv("SERVICE_EVENTS_URL", "http://localhost:7979/"),
     version="0.1.0",
     default_input_modes=["text"],
     default_output_modes=["text"],

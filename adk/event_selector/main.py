@@ -43,7 +43,7 @@ USE_VERTEX = os.getenv("GOOGLE_GENAI_USE_VERTEXAI")
 EXA_API_KEY  = os.getenv("EXA_API_KEY")
 
 client = genai.Client(
-    vertexai=True, project=os.getenv("GOOGLE_CLOUD_PROJECT"), location='us-central1'
+    vertexai=True, project=os.getenv("GOOGLE_CLOUD_PROJECT"), location=os.getenv("GOOGLE_CLOUD_PROJECT", 'us-central1')
 )
 # ── 1.  EXA SEARCH TOOL (imported) ─────────────────────────────────────────────
 from adk.utils.exa_search import exa_search
