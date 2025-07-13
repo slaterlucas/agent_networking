@@ -123,32 +123,60 @@ Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
 
 ### Prerequisites
 - Python 3.8+
+- [uv](https://docs.astral.sh/uv/) - Fast Python package manager
 - Exa API key ([Get one here](https://exa.ai))
 - Weights & Biases account ([Sign up here](https://wandb.ai))
 
 ### Installation
 
-1. **Clone the repository**
+1. **Install uv** (if not already installed)
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. **Clone the repository**
    ```bash
    git clone <repository-url>
    cd agent_networking
    ```
 
-2. **Install dependencies**
+3. **Create virtual environment and install dependencies**
    ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
 
-3. **Set up environment variables**
+4. **Activate the virtual environment**
+   ```bash
+   source .venv/bin/activate  # On Unix/macOS
+   # or
+   .venv\Scripts\activate     # On Windows
+   ```
+
+5. **Set up environment variables**
    ```bash
    export EXA_API_KEY="your_exa_api_key"
    export WANDB_API_KEY="your_wandb_api_key"
    ```
 
-4. **Initialize W&B project**
+6. **Initialize W&B project**
    ```bash
    wandb init
    ```
+
+### Development Setup
+
+For development with additional tools:
+
+```bash
+# Install with development dependencies
+uv sync --group dev
+
+# Install with test dependencies
+uv sync --group test
+
+# Install with documentation dependencies
+uv sync --group docs
+```
 
 ### Running the Agents
 
@@ -281,14 +309,31 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ### Development Setup
 ```bash
 # Install development dependencies
-pip install -r requirements-dev.txt
+uv sync --group dev
 
 # Run tests
-pytest
+uv run pytest
 
 # Run linting
-flake8 adk/
-black adk/
+uv run black adk/
+uv run flake8 adk/
+uv run mypy adk/
+
+# Run all checks
+uv run pre-commit run --all-files
+```
+
+### Adding Dependencies
+
+```bash
+# Add a new dependency
+uv add package-name
+
+# Add a development dependency
+uv add --group dev package-name
+
+# Add a specific version
+uv add "package-name>=1.0.0,<2.0.0"
 ```
 
 ## 📄 License
@@ -301,6 +346,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Weights & Biases** for experiment tracking and monitoring
 - **ADK Community** for the autonomous agent framework
 - **A2A Protocol** contributors for agent communication standards
+- **uv** for fast and reliable Python package management
 
 ---
 

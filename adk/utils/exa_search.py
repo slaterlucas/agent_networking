@@ -20,7 +20,7 @@ def exa_search(
     include_domains: list[str] | None = None,
     exclude_domains: list[str] | None = None,
     start_published_date: str | None = None,
-    text: bool = False,
+    text: bool = True,
 ) -> list[dict]:
     """Thin wrapper around Exa /search (see https://exa.ai/docs)."""
 
