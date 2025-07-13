@@ -104,6 +104,12 @@ def _create_adk_agent(name: str, preferences: dict, system_prompt: str):
 - Restaurant requests include: finding restaurants, dinner plans, lunch suggestions, food recommendations, etc.
 - Look for keywords like: restaurant, dinner, lunch, food, eat, cuisine, reservation, etc.
 - When you detect a restaurant request, respond with: "RESTAURANT_REQUEST: [extracted details]"
+
+- For concert/music requests, you should recognize them and route to the concert selector
+- Concert requests include: finding concerts, live music, shows, bands, artists, music events, etc.
+- Look for keywords like: concert, music, show, band, artist, gig, live music, venue, tickets, etc.
+- When you detect a concert request, respond with: "CONCERT_REQUEST: [extracted details]"
+
 - For all other queries, provide helpful, personalized responses based on the user's preferences
 - Be conversational and friendly
 - Remember the user's preferences when giving advice
@@ -217,6 +223,12 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 - Restaurant requests include: finding restaurants, dinner plans, lunch suggestions, food recommendations, etc.
 - Look for keywords like: restaurant, dinner, lunch, food, eat, cuisine, reservation, etc.
 - When you detect a restaurant request, respond with: "RESTAURANT_REQUEST: [extracted details]"
+
+- For concert/music requests, you should recognize them and route to the concert selector
+- Concert requests include: finding concerts, live music, shows, bands, artists, music events, etc.
+- Look for keywords like: concert, music, show, band, artist, gig, live music, venue, tickets, etc.
+- When you detect a concert request, respond with: "CONCERT_REQUEST: [extracted details]"
+
 - For all other queries, provide helpful, personalized responses based on the user's preferences
 - Be conversational and friendly
 - Remember the user's preferences when giving advice
@@ -475,6 +487,57 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
                         conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
                         return {"reply": fallback_response}
                 
+                # Check if this is a concert request
+                if "CONCERT_REQUEST:" in response_text:
+                    # Extract the details and route to concert selector
+                    concert_details = response_text.split("CONCERT_REQUEST:", 1)[1].strip()
+                    
+                    # Create concert request with user preferences
+                    concert_input = {
+                        "text_query": concert_details,
+                        "location": "San Francisco",  # Default, could be extracted from query
+                    }
+                    
+                    # Merge user preferences
+                    if preferences:
+                        music_prefs = preferences.get("music", {})
+                        if music_prefs.get("genres"):
+                            concert_input["genres"] = music_prefs["genres"]
+                        if music_prefs.get("budget_level"):
+                            concert_input["budget_level"] = music_prefs["budget_level"]
+                        if music_prefs.get("artist_preferences"):
+                            concert_input["artist_preferences"] = music_prefs["artist_preferences"]
+                        if music_prefs.get("atmosphere_preferences"):
+                            concert_input["atmosphere_preferences"] = music_prefs["atmosphere_preferences"]
+                    
+                    # Call concert selector
+                    try:
+                        resp = requests.post(
+                            "http://localhost:8081/invoke",
+                            headers={"Content-Type": "application/json"},
+                            json=concert_input,
+                            timeout=180,
+                        )
+                        if resp.status_code == 200:
+                            concert_result = resp.json()
+                            if "recommendation" in concert_result:
+                                final_response = f"I found a great concert recommendation for you!\n\n{concert_result['recommendation']}"
+                                # Update conversation history with the final response
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                                return {"reply": final_response}
+                            else:
+                                final_response = f"Here's what I found:\n\n{concert_result}"
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                                return {"reply": final_response}
+                        else:
+                            fallback_response = f"I tried to find a concert for you, but the concert service had an issue. Let me help you in another way: {response_text.replace('CONCERT_REQUEST:', '').strip()}"
+                            conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                            return {"reply": fallback_response}
+                    except Exception as e:
+                        fallback_response = f"I'd love to help you find a concert, but I'm having trouble connecting to the concert service right now. Can you try again in a moment?"
+                        conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                        return {"reply": fallback_response}
+                
                 return {"reply": response_text}
                 
             except Exception as e:
@@ -609,6 +672,75 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
                         return {"reply": fallback_response}
                 except Exception as e:
                     fallback_response = f"I'd love to help you find a restaurant, but I'm having trouble connecting to the restaurant service right now. Can you try again in a moment?"
+                    # Update conversation history with the final response (only if using fallback client)
+                    if session_id in conversation_history and conversation_history[session_id]:
+                        conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                    return {"reply": fallback_response}
+            
+            # Check if this is a concert request
+            if response_text and "CONCERT_REQUEST:" in response_text:
+                # Extract the details and route to concert selector
+                concert_details = response_text.split("CONCERT_REQUEST:", 1)[1].strip()
+                
+                # Create concert request with user preferences
+                concert_input = {
+                    "text_query": concert_details,
+                    "location": "San Francisco",  # Default, could be extracted from query
+                }
+                
+                # Merge user preferences
+                if preferences:
+                    music_prefs = preferences.get("music", {})
+                    if music_prefs.get("genres"):
+                        concert_input["genres"] = music_prefs["genres"]
+                    if music_prefs.get("budget_level"):
+                        concert_input["budget_level"] = music_prefs["budget_level"]
+                    if music_prefs.get("artist_preferences"):
+                        concert_input["artist_preferences"] = music_prefs["artist_preferences"]
+                    if music_prefs.get("atmosphere_preferences"):
+                        concert_input["atmosphere_preferences"] = music_prefs["atmosphere_preferences"]
+                
+                # Call concert selector
+                try:
+                    resp = requests.post(
+                        "http://localhost:8081/invoke",
+                        headers={"Content-Type": "application/json"},
+                        json=concert_input,
+                        timeout=180,
+                    )
+                    if resp.status_code == 200:
+                        concert_result = resp.json()
+                        
+                        # Handle both task format and direct recommendation format
+                        recommendation_text = None
+                        if "recommendation" in concert_result:
+                            recommendation_text = concert_result["recommendation"]
+                        elif "artifacts" in concert_result and concert_result["artifacts"]:
+                            # Extract from task format
+                            artifact = concert_result["artifacts"][0]
+                            if "parts" in artifact and artifact["parts"]:
+                                recommendation_text = artifact["parts"][0].get("text", "")
+                        
+                        if recommendation_text:
+                            final_response = f"I found a great concert recommendation for you!\n\n{recommendation_text}"
+                            # Update conversation history with the final response (only if using fallback client)
+                            if session_id in conversation_history and conversation_history[session_id]:
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                            return {"reply": final_response}
+                        else:
+                            final_response = f"Here's what I found:\n\n{concert_result}"
+                            # Update conversation history with the final response (only if using fallback client)
+                            if session_id in conversation_history and conversation_history[session_id]:
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                            return {"reply": final_response}
+                    else:
+                        fallback_response = f"I tried to find a concert for you, but the concert service had an issue. Let me help you in another way: {response_text.replace('CONCERT_REQUEST:', '').strip()}"
+                        # Update conversation history with the final response (only if using fallback client)
+                        if session_id in conversation_history and conversation_history[session_id]:
+                            conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                        return {"reply": fallback_response}
+                except Exception as e:
+                    fallback_response = f"I'd love to help you find a concert, but I'm having trouble connecting to the concert service right now. Can you try again in a moment?"
                     # Update conversation history with the final response (only if using fallback client)
                     if session_id in conversation_history and conversation_history[session_id]:
                         conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
