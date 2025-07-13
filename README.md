@@ -122,10 +122,17 @@ Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.8+
-- [uv](https://docs.astral.sh/uv/) - Fast Python package manager
-- Exa API key ([Get one here](https://exa.ai))
-- Weights & Biases account ([Sign up here](https://wandb.ai))
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) – lightning-fast Python package manager
+- Exa API key (free tier is enough) – https://exa.ai
+- Google Cloud project with Vertex AI / Gemini access  
+  • Service-Account JSON key with "Generative AI User" role  
+  • Environment variable `GOOGLE_APPLICATION_CREDENTIALS` pointing to the key file
+- (Optional) Weights & Biases account for experiment tracking
+
+### Gcloud help
+(https://cloud.google.com/vertex-ai/docs/general/iam-permissions)
+(https://cloud.google.com/vertex-ai/generative-ai/docs/sdks/overview)
 
 ### Installation
 
@@ -154,8 +161,15 @@ Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
 
 5. **Set up environment variables**
    ```bash
-   export EXA_API_KEY="your_exa_api_key"
-   export WANDB_API_KEY="your_wandb_api_key"
+   # Required
+   export EXA_API_KEY="<your-exa-key>"
+   export GOOGLE_CLOUD_PROJECT="<your-gcp-project-id>"
+   export GOOGLE_CLOUD_LOCATION="us-central1"         # or your Gemini region
+   export GOOGLE_APPLICATION_CREDENTIALS="/absolute/path/sa.json"
+   export A2A_REGISTRY="http://localhost:9000"
+
+   # Optional analytics
+   export WANDB_API_KEY="<your-wandb-key>"
    ```
 
 6. **Initialize W&B project**
@@ -178,19 +192,43 @@ uv sync --group test
 uv sync --group docs
 ```
 
-### Running the Agents
+### Running the Demo Agents
 
-#### Start Personal Agents
-```bash
-python -m adk.personal_agent --user_id user_a --preferences preferences_a.json
-python -m adk.personal_agent --user_id user_b --preferences preferences_b.json
-```
+1. **Discovery Registry**  
+   ```bash
+   uv run python -m python_a2a.registry --host 0.0.0.0 --port 9000
+   ```
 
-#### Start Service Agents
-```bash
-python -m adk.restaurant_selector
-python -m adk.event_selector
-```
+2. **Restaurant Selector (port 8080)**  
+   ```bash
+   uv run uvicorn adk.restaurant_selector.A2A:app --host 0.0.0.0 --port 8080 --reload
+   ```
+
+3. **Personal Agents**  
+   ```bash
+   # Alice
+   uv run python -m agents.personal_agent --name Alice --port 10001
+
+   # Bob
+   uv run python -m agents.personal_agent --name Bob --port 10002
+   ```
+
+4. **Test the full chain**  
+
+   ```bash
+   curl -X POST http://localhost:10001/invoke \
+     -H "Content-Type: application/json" \
+     -d '{
+           "skill": "restaurant_recommendation",
+           "input": {
+             "location": "North Beach, San Francisco",
+             "cuisines": ["japanese"],
+             "diet": ["pescatarian"],
+             "time_window": ["2025-07-15T18:00", "2025-07-15T21:00"],
+             "budget": "high"
+           }
+         }'
+   ```
 
 #### Example Collaboration
 ```python

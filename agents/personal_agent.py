@@ -123,7 +123,7 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
                         "http://localhost:8080/invoke",
                         headers={"Content-Type": "application/json"},
                         json=prefs,
-                        timeout=90,
+                        timeout=180,
                     )
                 except requests.exceptions.ReadTimeout:
                     return {"error": "Selector timed out"}

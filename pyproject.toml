@@ -34,6 +34,11 @@ dependencies = [
     "vertexai>=0.0.1",
     # Google Agent Development Kit (needed by Restaurant-Selector agent)
     "google-adk>=0.1.0",
+    # Web framework & Agent communication
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.24.0",
+    "python-a2a>=0.2.1",
+    "anyio>=3.7.0",
     
     # Data processing
     "pandas>=1.5.0",
