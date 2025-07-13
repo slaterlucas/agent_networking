@@ -409,9 +409,12 @@ async def create_personal_agent(
     
     # Spawn personal agent process
     try:
+        # Add user ID to preferences for collaborative requests
+        prefs_with_user_id = {**prefs, "_user_id": user["id"]}
+        
         env = {
             **os.environ,
-            "PREFERENCES_JSON": json.dumps(prefs),
+            "PREFERENCES_JSON": json.dumps(prefs_with_user_id),
             "A2A_REGISTRY": os.getenv("A2A_REGISTRY", "http://localhost:9000"),
         }
         

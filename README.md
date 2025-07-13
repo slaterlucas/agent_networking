@@ -30,6 +30,40 @@ It's located at 123 Main St, 15 minutes from both locations."
 Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
 ```
 
+## 🛠️ Tool Stack
+
+### **Core Technologies**
+- **Python 3.10+** - Primary development language
+- **FastAPI** - High-performance web framework for API endpoints
+- **Uvicorn** - ASGI server for running FastAPI applications
+- **SQLite** - Lightweight database for user preferences and agent data
+- **uv** - Lightning-fast Python package manager
+
+### **AI & LLM Integration**
+- **Google Gemini (Vertex AI)** - Large language model for agent intelligence
+- **Google ADK (Autonomous Developer Kit)** - Framework for building autonomous agents
+- **Weights & Biases Weave** - Experiment tracking and model monitoring
+
+### **Agent Communication**
+- **A2A (Agent-to-Agent) Protocol** - Structured communication between agents
+- **Python A2A Library** - Implementation of A2A protocol in Python
+- **Registry Service** - Service discovery and health monitoring
+
+### **Web Search & Data**
+- **Exa API** - Intelligent web search with semantic understanding
+- **Real-time Data Retrieval** - Live restaurant, concert, and event information
+
+### **Frontend & UI**
+- **HTML/CSS/JavaScript** - Modern web interface
+- **Dark Theme UI** - Developer-friendly interface design
+- **CORS Support** - Cross-origin resource sharing for frontend-backend communication
+
+### **Development & Deployment**
+- **Git** - Version control
+- **Virtual Environments** - Isolated Python environments
+- **Environment Variables** - Configuration management
+- **Multi-service Architecture** - Distributed system design
+
 ## 🤖 Technology Stack
 
 ### 1. **Exa API** - Intelligent Web Search
@@ -91,24 +125,43 @@ Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
 
 ## 🏗️ Architecture Overview
 
+### Current System Architecture
+
 ```
+┌─────────────────┐                                    ┌─────────────────┐
+│   Frontend UI   │                                    │   Registry      │
+│                 │                                    │   Service       │
+│ • Chat Interface│                                    │                 │
+│ • Network View  │                                    │ • Service       │
+│ • User Management│                                   │   Discovery     │
+│                 │                                    │ • Health Checks │
+└─────────────────┘                                    └─────────────────┘
+         │                                                       │
+         │ HTTP/REST                                            │
+         │                                                       │
+         ▼                                                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Person A's    │    │   Person B's    │    │   Person C's    │
-│  Personal Agent │    │  Personal Agent │    │  Personal Agent │
+│  Personal Agent │    │ Collaborative   │    │  Orchestrator   │
+│                 │◄──►│  Middleware     │◄──►│   Service       │
+│ • Chat Endpoint │    │                 │    │                 │
+│ • Request Router│    │ • User Lookup   │    │ • Agent Mgmt    │
+│ • Collaborative │    │ • Pref Merging  │    │ • Preferences   │
+│   Detection     │    │ • Multi-user    │    │ • Database      │
+│ • CORS Support  │    │   Coordination  │    │ • User Profiles │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │   A2A Protocol  │
-                    │   Coordinator   │
-                    └─────────────────┘
-                                 │
-         ┌───────────────────────┼───────────────────────┐
-         │                       │                       │
+         │                       │                      │
+         │                       │                      │
+         │ A2A Protocol          │                      │
+         │                       │                      │
+         ▼                       ▼                      ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Restaurant     │    │   Event         │    │   Schedule      │
-│  Finder Agent   │    │  Finder Agent   │    │  Coordinator    │
+│  Restaurant     │    │   Concert       │    │   Event         │
+│  Selector       │    │   Selector      │    │   Selector      │
+│                 │    │                 │    │                 │
+│ • Cuisine Prefs │    │ • Genre Prefs   │    │ • Activity      │
+│ • Dietary Restr │    │ • Venue Types   │    │   Matching      │
+│ • Budget Filter │    │ • Time Windows  │    │ • Scheduling    │
+│ • Location      │    │ • Artist Prefs  │    │ • Coordination  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
@@ -116,8 +169,59 @@ Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
                     ┌─────────────────┐
                     │     Exa API     │
                     │  (Web Search)   │
+                    │                 │
+                    │ • Real-time     │
+                    │   Restaurant    │
+                    │   Data          │
+                    │ • Concert Info  │
+                    │ • Event Details │
                     └─────────────────┘
 ```
+
+### Key Components
+
+#### **Frontend UI**
+- **Modern Web UI**: Dark theme with developer-friendly monospace fonts
+- **Chat Interface**: Real-time chat with the personal agent
+- **Network View**: Shows available users and their preferences
+- **Collaborative Features**: Seamless multi-user request handling
+- **Responsive Design**: Works across different screen sizes
+
+#### **Personal Agent**
+- **Request Detection**: Automatically detects collaborative, restaurant, and concert requests
+- **Preference Management**: Stores and manages user preferences
+- **A2A Communication**: Communicates with other agents using structured protocols
+- **CORS Enabled**: Allows frontend connections from multiple origins
+- **Context Awareness**: Maintains conversation context and user state
+
+#### **Collaborative Middleware**
+- **User Lookup**: Finds users by name/identifier in the database
+- **Preference Merging**: Intelligently combines preferences from multiple users
+  - Union for cuisines/genres
+  - Intersection for dietary restrictions
+  - Most conservative budget level
+  - Combined atmosphere preferences
+- **Multi-user Coordination**: Handles complex collaborative requests
+- **Conflict Resolution**: Manages conflicting preferences between users
+
+#### **Orchestrator Service**
+- **Agent Management**: Creates and manages personal agents
+- **User Database**: SQLite database with user profiles and preferences
+- **Preference Storage**: Centralized preference management
+- **Service Coordination**: Coordinates between different services
+- **Demo Data**: Includes sample users and preferences for testing
+
+#### **Selector Agents**
+- **Restaurant Selector**: Finds restaurants based on merged preferences using Exa search
+- **Concert Selector**: Discovers concerts and live music events with venue details
+- **Event Selector**: Handles general event coordination and scheduling
+- **Intelligent Filtering**: Uses AI to match preferences with available options
+
+#### **Registry Service**
+- **Service Discovery**: Maintains registry of all available agents
+- **Health Monitoring**: Tracks agent health and availability
+- **Load Balancing**: Distributes requests across available agents
+- **Automatic Registration**: Agents self-register on startup
 
 ## 🚀 Getting Started
 

@@ -100,6 +100,11 @@ def _create_adk_agent(name: str, preferences: dict, system_prompt: str):
 {system_prompt}
 
 ## Special Instructions:
+- For collaborative requests (involving other users), you should recognize them and route to the collaborative middleware
+- Collaborative requests include phrases like: "with Bob", "and Alice", "Bob and I", "me and Charlie", etc.
+- Look for patterns like: "dinner with [name]", "go to [event] with [name]", "[name] and I want to [activity]"
+- When you detect a collaborative request, respond with: "COLLABORATIVE_REQUEST: [extracted details]"
+
 - For restaurant/dining requests, you should recognize them and route to the restaurant selector
 - Restaurant requests include: finding restaurants, dinner plans, lunch suggestions, food recommendations, etc.
 - Look for keywords like: restaurant, dinner, lunch, food, eat, cuisine, reservation, etc.
@@ -219,6 +224,11 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
 {system_prompt}
 
 ## Special Instructions:
+- For collaborative requests (involving other users), you should recognize them and route to the collaborative middleware
+- Collaborative requests include phrases like: "with Bob", "and Alice", "Bob and I", "me and Charlie", etc.
+- Look for patterns like: "dinner with [name]", "go to [event] with [name]", "[name] and I want to [activity]"
+- When you detect a collaborative request, respond with: "COLLABORATIVE_REQUEST: [extracted details]"
+
 - For restaurant/dining requests, you should recognize them and route to the restaurant selector
 - Restaurant requests include: finding restaurants, dinner plans, lunch suggestions, food recommendations, etc.
 - Look for keywords like: restaurant, dinner, lunch, food, eat, cuisine, reservation, etc.
@@ -266,7 +276,7 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
     # Add CORS middleware to allow frontend connections
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000", "http://127.0.0.1:8000"],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
@@ -435,6 +445,50 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
                 # Update conversation history
                 conversation_history[session_id].append({"role": "user", "parts": [{"text": user_input}]})
                 conversation_history[session_id].append({"role": "model", "parts": [{"text": response_text}]})
+                
+                # Check if this is a collaborative request first
+                if "COLLABORATIVE_REQUEST:" in response_text:
+                    # Extract the details and route to collaborative middleware
+                    collaborative_details = response_text.split("COLLABORATIVE_REQUEST:", 1)[1].strip()
+                    
+                    # Get user ID from preferences or use a default
+                    user_id = preferences.get("_user_id", "demo_user_id")  # We'll need to set this when creating the agent
+                    
+                    # Create collaborative request
+                    collaborative_input = {
+                        "user_id": user_id,
+                        "request_text": collaborative_details,
+                        "location": "San Francisco"
+                    }
+                    
+                    # Call collaborative middleware
+                    try:
+                        resp = requests.post(
+                            "http://localhost:8002/collaborative-request",
+                            headers={"Content-Type": "application/json"},
+                            json=collaborative_input,
+                            timeout=180,
+                        )
+                        if resp.status_code == 200:
+                            collaborative_result = resp.json()
+                            
+                            if collaborative_result.get("success"):
+                                final_response = collaborative_result.get("recommendation", "Successfully processed collaborative request")
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                                return {"reply": final_response}
+                            else:
+                                error_message = collaborative_result.get("message", "Unknown error")
+                                fallback_response = f"I had trouble processing your collaborative request: {error_message}"
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                                return {"reply": fallback_response}
+                        else:
+                            fallback_response = f"I tried to process your collaborative request, but the collaborative service had an issue. Let me help you in another way: {response_text.replace('COLLABORATIVE_REQUEST:', '').strip()}"
+                            conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                            return {"reply": fallback_response}
+                    except Exception as e:
+                        fallback_response = f"I'd love to help you with your collaborative request, but I'm having trouble connecting to the collaborative service right now. Can you try again in a moment?"
+                        conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                        return {"reply": fallback_response}
                 
                 # Check if this is a restaurant request
                 if "RESTAURANT_REQUEST:" in response_text:
@@ -607,6 +661,58 @@ def build_app(name: str = "Demo", port: int = 10001) -> FastAPI:  # noqa: D401
                 # Update conversation history
                 conversation_history[session_id].append({"role": "user", "parts": [{"text": user_input}]})
                 conversation_history[session_id].append({"role": "model", "parts": [{"text": response_text}]})
+            
+            # Check if this is a collaborative request first
+            if response_text and "COLLABORATIVE_REQUEST:" in response_text:
+                # Extract the details and route to collaborative middleware
+                collaborative_details = response_text.split("COLLABORATIVE_REQUEST:", 1)[1].strip()
+                
+                # Get user ID from preferences or use a default
+                user_id = preferences.get("_user_id", "demo_user_id")  # We'll need to set this when creating the agent
+                
+                # Create collaborative request
+                collaborative_input = {
+                    "user_id": user_id,
+                    "request_text": collaborative_details,
+                    "location": "San Francisco"
+                }
+                
+                # Call collaborative middleware
+                try:
+                    resp = requests.post(
+                        "http://localhost:8002/collaborative-request",
+                        headers={"Content-Type": "application/json"},
+                        json=collaborative_input,
+                        timeout=180,
+                    )
+                    if resp.status_code == 200:
+                        collaborative_result = resp.json()
+                        
+                        if collaborative_result.get("success"):
+                            final_response = collaborative_result.get("recommendation", "Successfully processed collaborative request")
+                            # Update conversation history with the final response (only if using fallback client)
+                            if session_id in conversation_history and conversation_history[session_id]:
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": final_response}]}
+                            return {"reply": final_response}
+                        else:
+                            error_message = collaborative_result.get("message", "Unknown error")
+                            fallback_response = f"I had trouble processing your collaborative request: {error_message}"
+                            # Update conversation history with the final response (only if using fallback client)
+                            if session_id in conversation_history and conversation_history[session_id]:
+                                conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                            return {"reply": fallback_response}
+                    else:
+                        fallback_response = f"I tried to process your collaborative request, but the collaborative service had an issue. Let me help you in another way: {response_text.replace('COLLABORATIVE_REQUEST:', '').strip()}"
+                        # Update conversation history with the final response (only if using fallback client)
+                        if session_id in conversation_history and conversation_history[session_id]:
+                            conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                        return {"reply": fallback_response}
+                except Exception as e:
+                    fallback_response = f"I'd love to help you with your collaborative request, but I'm having trouble connecting to the collaborative service right now. Can you try again in a moment?"
+                    # Update conversation history with the final response (only if using fallback client)
+                    if session_id in conversation_history and conversation_history[session_id]:
+                        conversation_history[session_id][-1] = {"role": "model", "parts": [{"text": fallback_response}]}
+                    return {"reply": fallback_response}
             
             # Check if this is a restaurant request
             if response_text and "RESTAURANT_REQUEST:" in response_text:
