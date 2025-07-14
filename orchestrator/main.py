@@ -320,14 +320,16 @@ async def startup():
         
         for name, email, port in demo_users:
             user = await database.fetch_one(users.select().where(users.c.email == email))
-            if user and user.get("preferences", {}).get("_system_prompt"):
-                user_id = user["id"]
+            # Convert database record to dict before using .get()
+            user_dict = dict(user) if user else None
+            if user_dict and user_dict.get("preferences", {}).get("_system_prompt"):
+                user_id = user_dict["id"]
                 
                 # Check if agent is already running
                 if user_id not in running_agents:
                     try:
                         # Prepare preferences with user ID
-                        prefs = dict(user["preferences"])
+                        prefs = dict(user_dict["preferences"])
                         prefs["_user_id"] = user_id
                         
                         env = {

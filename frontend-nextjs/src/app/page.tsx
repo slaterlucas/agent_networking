@@ -131,7 +131,7 @@ export default function ChatPage() {
         body: JSON.stringify({ 
           message: inputValue,
           user_id: 'demo_user',
-          session_id: 'demo_session'
+          session_id: 'curl_test'
         })
       })
 
