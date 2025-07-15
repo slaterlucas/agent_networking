@@ -2,7 +2,7 @@
 
 ## 📱 User Interface
 
-![Akin - Collaborative Agent Network](assets/Screenshot%202025-07-13%20at%202.09.35%20PM.png)
+![Akin - Collaborative Agent Network](assets/demo.png)
 
 *The modern, glassmorphism-styled interface of Akin, featuring side-by-side chat and network views with AI-powered collaborative agent networking.*
 
@@ -289,32 +289,33 @@ Both Agents: "Perfect! We'll suggest 1:30pm at Fusion Bistro."
 
 ### Development Setup
 
-For development with additional tools:
-
-```bash
-# Install with development dependencies
-uv sync --group dev
-
-# Install with test dependencies
-uv sync --group test
-
-# Install with documentation dependencies
-uv sync --group docs
-```
+> **Note:** A single `uv sync` now installs *all* required dependencies, including development, testing, and documentation extras. You can safely ignore any older instructions that reference `uv sync --group dev`, `--group test`, or `--group docs`.
 
 ### Running the Demo Agents
+
+> **Important:** Make sure the discovery registry is **running first**. Selector and personal agents register themselves on start-up and will fail to connect if the registry isn’t available.
 
 1. **Discovery Registry**  
    ```bash
    uv run python -m python_a2a.registry --host 0.0.0.0 --port 9000
    ```
 
-2. **Restaurant Selector (port 8080)**  
+2. **Orchestrator Service (port 8000)**  
+   ```bash
+   uv run uvicorn orchestrator.main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+
+3. **Collaborative Middleware (port 8002)**  
+   ```bash
+   uv run uvicorn orchestrator.collaborative_middleware:app --host 0.0.0.0 --port 8002 --reload
+   ```
+
+4. **Restaurant Selector (port 8080)**  
    ```bash
    uv run uvicorn adk.restaurant_selector.A2A:app --host 0.0.0.0 --port 8080 --reload
    ```
 
-3. **Personal Agents**  
+5. **Personal Agents**  
    ```bash
    # Alice
    uv run python -m agents.personal_agent --name Alice --port 10001
@@ -323,7 +324,7 @@ uv sync --group docs
    uv run python -m agents.personal_agent --name Bob --port 10002
    ```
 
-4. **Test the full chain**  
+6. **Test the full chain**  
 
    ```bash
    curl -X POST http://localhost:10001/invoke \
