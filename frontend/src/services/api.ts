@@ -108,10 +108,19 @@ class ApiClient {
   }
 
   async sendMessage(request: ChatRequest): Promise<{ message: string; response: Message }> {
-    return this.request<{ message: string; response: Message }>('/api/chat', {
+    // Override to use the custom chat endpoint
+    const url = 'http://172.20.10.3:12000/chat';
+    const response = await fetch(url, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(request),
     });
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+    return response.json();
   }
 
   // Locations
